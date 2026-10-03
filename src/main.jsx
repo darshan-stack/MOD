@@ -307,6 +307,27 @@ function App() {
     broadcast({ type: 'JOIN', member: updated });
   };
 
+  const exportVisualizationBundle = function() {
+    var payload = {
+      schema: 'sentinel-grid-viz/v1',
+      exportedAt: new Date().toISOString(),
+      exercise: { key: scenarioKey, name: scenario.name },
+      network: { netHealth: netHealth, latency: latency, dropout: dropout, conflict: conflict, freshnessDecay: freshnessDecay },
+      fusedRoute: fusedRoute,
+      reports: reports,
+      events: events.slice().sort(function(a, b) { return a.at - b.at; }),
+      decisions: decisions.slice().sort(function(a, b) { return a.at - b.at; }),
+      note: 'Synthetic visualization bundle; not operational data.'
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'sentinel-grid-viz.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const exportAAR = function(format) {
     var payload = {
       product: 'Sentinel Grid Omega',
@@ -401,7 +422,7 @@ function App() {
 
         {activeTab === 'team' && <TeamPanel members={members} activeSeat={activeSeat} joinSeat={joinSeat} messages={messages} messageText={messageText} setMessageText={setMessageText} sendMessage={sendMessage} degraded={teamChannelDegraded}/>}
         {activeTab === 'benchmark' && <BenchmarkPanel benchmark={benchmark} summary={benchmarkSummary} onRerun={() => setBenchmarkRun(function(v){ return v + 1; })}/>}
-         {activeTab === 'viz' && <VisualizationPanel reports={reports} events={events} decisions={decisions} netHealth={netHealth} latency={latency} dropout={dropout} conflict={conflict} fusedRoute={fusedRoute}/>} 
+         {activeTab === 'viz' && <VisualizationPanel reports={reports} events={events} decisions={decisions} netHealth={netHealth} latency={latency} dropout={dropout} conflict={conflict} fusedRoute={fusedRoute} onExportBundle={exportVisualizationBundle}/>} 
         {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} setNetHealth={setNetHealth} latency={latency} setLatency={setLatency} dropout={dropout} setDropout={setDropout} conflict={conflict} setConflict={setConflict} freshnessDecay={freshnessDecay} setFreshnessDecay={setFreshnessDecay} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise}/>}
         {activeTab === 'aar' && <AARPanel decisions={decisions} events={events} reports={reports} metrics={metrics} focus={focus} replayAt={replayAt} setReplayAt={setReplayAt} elapsed={elapsed} exportAAR={exportAAR} integrityIndex={integrityIndex} confidenceGap={confidenceGap} fusedRoute={fusedRoute} ledgerFingerprint={ledgerFingerprint}/>}
 
@@ -417,7 +438,7 @@ function Presence(props) {
   return <button className={'presence-row ' + (props.active ? 'active' : '')} onClick={props.onClick}><div className={'mini-avatar ' + (props.active ? 'me' : '')}>{props.initials}</div><div><strong>{props.name}</strong><small>{props.role}</small></div><span className={props.status === 'online' ? 'online-dot' : props.status === 'degraded' ? 'degraded-dot' : 'away-dot'}></span></button>;
 }
 
-function VisualizationPanel({ reports, events, decisions, netHealth, latency, dropout, conflict, fusedRoute }) {
+function VisualizationPanel({ reports, events, decisions, netHealth, latency, dropout, conflict, fusedRoute, onExportBundle }) {
   const networkRef = useRef(null);
   const chartRef = useRef(null);
   const timelineRef = useRef(null);
@@ -550,10 +571,14 @@ function VisualizationPanel({ reports, events, decisions, netHealth, latency, dr
 
   return <div className="viz-layout">
     <div className="viz-banner">
-      <div><div className="eyebrow">OPEN-SOURCE VISUALIZATION STACK</div><h2>Operational telemetry, relationship graphs and replay timelines</h2><p>All visual layers consume the same synthetic exercise state already used by Sentinel Grid Ω.</p></div>
+      <div><div className="eyebrow">OPEN-SOURCE VISUALIZATION STACK</div><h2>3D telemetry + multimodal robotics visualization</h2><p>Browser views provide the dashboard; Rerun and Open3D provide the high-end 3D inspection layer from the same exported synthetic scene bundle.</p><div className="viz-actions"><button className="primary-btn" onClick={onExportBundle}>EXPORT 3D BUNDLE ↗</button><span className="viz-command">npm run viz:rerun · npm run viz:open3d</span></div></div>
       <div className="viz-metrics">{metrics.map(function(pair){return <div key={pair[0]}><small>{pair[0]}</small><strong>{pair[1]}</strong></div>;})}</div>
     </div>
     <div className="viz-grid">
+      <section className="viz-card viz-3d-stack">
+        <div className="section-head compact"><div><div className="eyebrow">RERUN.IO · MIT / APACHE-2.0</div><h2>Multimodal 3D replay companion</h2></div><span className="badge live">RERUN</span></div>
+        <div className="viz-3d-callout"><div><strong>Rerun</strong><span>Time-aware 3D, trajectories, telemetry and event logs.</span></div><div><strong>Open3D</strong><span>Point-cloud and geometry inspection for synthetic spatial evidence.</span></div><div><strong>Bundle</strong><span>Export once from this screen, then inspect with either viewer.</span></div></div>
+      </section>
       <section className="viz-card viz-network">
         <div className="section-head compact"><div><div className="eyebrow">CYTOSCAPE.JS · MIT</div><h2>Communication relationship graph</h2></div><span className="badge live">INTERACTIVE</span></div>
         <div ref={networkRef} className="cytoscape-canvas"></div>
