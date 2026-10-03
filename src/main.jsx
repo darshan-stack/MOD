@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
-import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint, defaultGlicko2, glicko2Update, calibrationSummary, evaluateDecisionOutcome } from './engine/decisionIntelligence';
+import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint, defaultGlicko2, glicko2Update, calibrationSummary, evaluateDecisionOutcome, updateSourceHistory, sourceReliability } from './engine/decisionIntelligence';
 import { runBenchmark, benchmarkHeadline } from './engine/benchmark';
 
 const SCENARIOS = {
@@ -80,12 +80,15 @@ function App() {
   const [skill, setSkill] = useState(function() {
     try { return JSON.parse(localStorage.getItem('sentinel-grid-glicko2') || 'null') || defaultGlicko2(); } catch (_) { return defaultGlicko2(); }
   });
+  const [sourceHistory, setSourceHistory] = useState(function() {
+    try { return JSON.parse(localStorage.getItem('sentinel-grid-source-history') || 'null') || {}; } catch (_) { return {}; }
+  });
   const channelRef = useRef(null);
 
   const scenario = SCENARIOS[scenarioKey];
   const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic === 'route_echo'; }); }, [reports]);
-  const fusedRoute = useMemo(function() { return robustFuse(routeEvidence, netHealth / 100); }, [routeEvidence, netHealth]);
-  const integrityIndex = useMemo(function() { return informationIntegrityIndex(reports, netHealth, latency, dropout, conflict); }, [reports, netHealth, latency, dropout, conflict]);
+  const fusedRoute = useMemo(function() { return robustFuse(routeEvidence, netHealth / 100, sourceHistory); }, [routeEvidence, netHealth, sourceHistory]);
+  const integrityIndex = useMemo(function() { return informationIntegrityIndex(reports, netHealth, latency, dropout, conflict, sourceHistory); }, [reports, netHealth, latency, dropout, conflict, sourceHistory]);
   const confidenceGap = useMemo(function() { return computeCalibrationGap(decisions, reports); }, [decisions, reports]);
   const calibration = useMemo(function() { return calibrationSummary(decisions); }, [decisions]);
 
@@ -97,6 +100,7 @@ function App() {
 
   useEffect(function() { setReplayAt(elapsed); }, [elapsed]);
   useEffect(function() { try { localStorage.setItem('sentinel-grid-glicko2', JSON.stringify(skill)); } catch (_) {} }, [skill]);
+  useEffect(function() { try { localStorage.setItem('sentinel-grid-source-history', JSON.stringify(sourceHistory)); } catch (_) {} }, [sourceHistory]);
   useEffect(function() { sha256Fingerprint({ scenarioKey: scenarioKey, reports: reports, decisions: decisions, events: events, messages: messages }).then(function(hash) { setLedgerFingerprint(hash.slice(0, 24).toUpperCase()); }); }, [scenarioKey, reports, decisions, events, messages]);
 
   useEffect(function() {
@@ -139,8 +143,10 @@ function App() {
   }, [reports, selectedDomain]);
 
   const trustRows = useMemo(function() {
-    return reports.map(function(r) { return { ...r, trust: trustScore(r) }; }).sort(function(a, b) { return b.trust - a.trust; });
-  }, [reports]);
+    return reports.map(function(r) {
+      return { ...r, trust: trustScore(r), learned: Math.round(sourceReliability(r, sourceHistory) * 100) };
+    }).sort(function(a, b) { return b.trust - a.trust; });
+  }, [reports, sourceHistory]);
 
   const metrics = useMemo(function() {
     var count = decisions.length;
@@ -227,7 +233,8 @@ function App() {
     if (!decisionText.trim()) return;
     var currentActor = members.find(function(m) { return m.id === activeSeat; }) || members[0];
     var decisionEvidence = reports.filter(function(r) { return selectedEvidence.indexOf(r.id) >= 0 && r.topic === 'route_echo'; });
-    var evidenceState = robustFuse(decisionEvidence.length ? decisionEvidence : routeEvidence, netHealth / 100);
+    var decisionReports = decisionEvidence.length ? decisionEvidence : routeEvidence;
+    var evidenceState = robustFuse(decisionReports, netHealth / 100, sourceHistory);
     var outcome = evaluateDecisionOutcome(decisionType, evidenceState, scenario.difficulty, scenario.routeTruth);
     var d = {
       id: 'D-' + String(decisions.length + 1).padStart(3, '0'),
@@ -248,6 +255,14 @@ function App() {
       itemRating: outcome.opponentRating
     };
     setDecisions(function(current) { return [d].concat(current); });
+    setSourceHistory(function(current) {
+      return decisionReports.reduce(function(history, report) {
+        var supported = report.topic === 'route_echo'
+          ? report.stance === scenario.routeTruth
+          : report.truth === 'SUPPORTED';
+        return updateSourceHistory(history, report, supported);
+      }, current);
+    });
     if (activeSeat === 'you') {
       setSkill(function(current) {
         return glicko2Update(current, [{ opponentRating: d.itemRating, opponentRd: 120, score: outcome.score }]);
@@ -299,7 +314,7 @@ function App() {
       exportedAt: new Date().toISOString(),
       durationSeconds: elapsed,
       network: { netHealth: netHealth, latency: latency, dropout: dropout, conflict: conflict, freshnessDecay: freshnessDecay },
-      trainingMetrics: { ...metrics, integrityIndex: integrityIndex, confidenceGap: confidenceGap, fusedRoute: fusedRoute },
+      trainingMetrics: { ...metrics, integrityIndex: integrityIndex, confidenceGap: confidenceGap, fusedRoute: fusedRoute, sourceHistory: sourceHistory },
       observedFocus: focus,
       decisions: decisions.slice().sort(function(a, b) { return a.at - b.at; }),
       eventTimeline: events.slice().sort(function(a, b) { return a.at - b.at; }),
@@ -369,7 +384,7 @@ function App() {
 
               <aside className="right-column">
                 <div className="panel-head"><div><div className="eyebrow">INFORMATION INTEGRITY</div><h2>Trust state</h2></div><span className="lock">◎</span></div><p className="panel-note">Trust combines source history, freshness, corroboration and network health. Hidden truth is withheld until AAR.</p><div className={'ai-advisor ' + (fusedRoute.abstain ? 'abstain' : '')}><div><div className="eyebrow">DECISION SAFETY KERNEL</div><strong>{fusedRoute.abstain ? 'INSUFFICIENT EVIDENCE' : 'EVIDENCE STATE STABLE'}</strong><p>{fusedRoute.abstain ? 'Training cue: verify or seek corroboration before committing.' : 'Training cue: current evidence is sufficiently aligned for the exercise.'}</p></div><div className="advisor-grid"><div><small>FUSED CLAIM</small><b>{fusedRoute.label}</b></div><div><small>BELIEF</small><b>{fusedRoute.belief}%</b></div><div><small>DISBELIEF</small><b>{fusedRoute.disbelief}%</b></div><div><small>UNCERTAINTY</small><b>{fusedRoute.uncertainty}%</b></div><div><small>CONFLICT</small><b>{fusedRoute.conflict}%</b></div><div><small>SUFFICIENCY</small><b>{fusedRoute.sufficiency}%</b></div></div></div>
-                <div className="trust-stack">{trustRows.map(function(r){return <div className="trust-card" key={r.id}><div><span>{r.id}</span><small>{r.source}</small></div><strong>{r.trust}%</strong><div className="trust-bar"><span style={{width: r.trust + '%'}}></span></div></div>;})}</div>
+                <div className="trust-stack">{trustRows.map(function(r){return <div className="trust-card" key={r.id}><div><span>{r.id}</span><small>{r.source} · LEARNED {r.learned}%</small></div><strong>{r.trust}%</strong><div className="trust-bar"><span style={{width: r.trust + '%'}}></span></div></div>;})}</div>
                 <div className="panel-divider"></div>
                 <div className="skill-card"><div><div className="eyebrow">TRAINEE SKILL MODEL</div><strong>GLICKO-2 RATING</strong></div><div className="skill-values"><b>{Math.round(skill.rating)}</b><span>± {Math.round(2 * skill.rd)}</span></div><div className="skill-bar"><span style={{width: Math.max(6, Math.min(100, (skill.rating - 1000) / 10)) + '%'}}></span></div><small>RD {Math.round(skill.rd)} · σ {Number(skill.sigma).toFixed(3)} · {skill.rounds} scored rounds</small></div>
                 <div className="panel-divider"></div>
