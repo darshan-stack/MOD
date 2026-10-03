@@ -459,7 +459,7 @@ function RerunEmbeddedPanel() {
     stopViewer();
     setStatus('LOADING RERUN WEB VIEWER…');
     try {
-      const module = await import('@rerun-io/web-viewer');
+      const module = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@rerun-io/web-viewer@0.38.1/+esm');
       const viewer = new module.WebViewer();
       await viewer.start(source, hostRef.current, {
         width: '100%',
@@ -498,7 +498,7 @@ function RerunEmbeddedPanel() {
       <button className="ghost-btn" onClick={stopViewer}>STOP</button>
     </div>
     <div ref={hostRef} className="rerun-host"></div>
-    <p className="viz-note">Load the <code>sentinel-grid.rrd</code> recording produced by <code>npm run viz:rerun -- --save artifacts/sentinel-grid.rrd</code> to inspect the synthetic scene directly inside Sentinel Grid. The viewer supports 3D data and shared timelines. citeturn927182search0turn491207search0</p>
+    <p className="viz-note">Load the <code>sentinel-grid.rrd</code> recording produced by <code>npm run viz:rerun -- --save artifacts/sentinel-grid.rrd</code> to inspect the synthetic scene directly inside Sentinel Grid. The viewer supports 3D data and shared timelines.</p>
   </section>;
 }
 
