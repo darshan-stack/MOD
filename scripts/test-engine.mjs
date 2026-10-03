@@ -82,6 +82,7 @@ console.log(JSON.stringify({
   overall: {
     naive: benchmark.methods.naive,
     freshness: benchmark.methods.freshness,
+    reliability: benchmark.methods.reliability,
     sentinel: benchmark.methods.sentinel
   }
 }, null, 2));
