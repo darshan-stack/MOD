@@ -65,12 +65,12 @@ console.log(JSON.stringify({
 
 import { runBenchmark, benchmarkHeadline } from '../src/engine/benchmark.js';
 
-const benchmark = runBenchmark({ runsPerCondition: 50, seed: 20261003 });
+const benchmark = runBenchmark({ runsPerCondition: 100, seed: 20261003 });
 const headline = benchmarkHeadline(benchmark);
-assert.equal(benchmark.totalRuns, 200);
+assert.equal(benchmark.totalRuns, 400);
 assert.equal(benchmark.methods.sentinel.label, 'Sentinel Ω · Subjective Logic');
-assert(benchmark.methods.naive.runs === 200);
-assert(benchmark.methods.sentinel.runs === 200);
+assert(benchmark.methods.naive.runs === 400);
+assert(benchmark.methods.sentinel.runs === 400);
 assert(benchmark.methods.sentinel.appropriateAbstention >= 0);
 assert(benchmark.methods.sentinel.appropriateAbstention <= 100);
 assert.equal(Object.keys(benchmark.byCondition).length, 4);
