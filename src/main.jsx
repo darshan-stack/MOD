@@ -442,7 +442,7 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
             <div className="benchmark-number">{m.accuracy}%</div>
             <small>accuracy</small>
             <div className="benchmark-track"><span style={{width: (m.accuracy / maxAccuracy * 100) + '%'}}></span></div>
-            <div className="benchmark-mini"><span>Selective accuracy <b>{m.selectiveAccuracy === null ? '—' : m.selectiveAccuracy + '%'}</b></span><span>Coverage <b>{m.coverage}%</b></span><span>False confidence <b>{m.falseConfidenceRate}%</b></span><span>Brier <b>{m.brier}</b></span><span>Covered Brier <b>{m.coveredBrier === null ? '—' : m.coveredBrier}</b></span><span>ECE <b>{m.ece === null ? '—' : m.ece}</b></span></div>
+            <div className="benchmark-mini"><span>Selective accuracy <b>{m.selectiveAccuracy === null ? '—' : m.selectiveAccuracy + '%'}</b></span><span>Coverage <b>{m.coverage}%</b></span><span>False confidence <b>{m.falseConfidenceRate}%</b></span><span>Brier <b>{m.brier}</b></span><span>Covered Brier <b>{m.coveredBrier === null ? '—' : m.coveredBrier}</b></span><span>ECE <b>{m.ece === null ? '—' : m.ece}</b></span><span>AURC <b>{m.aurc === null ? '—' : m.aurc}</b></span><span>Matched @ {m.matchedCoverage}% <b>{m.matchedSelectiveAccuracy}%</b></span></div>
           </div>;
         })}
       </div>
@@ -466,7 +466,7 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
           </div>;
         })}
       </div>
-      <div className="benchmark-note"><strong>Methodology.</strong> The suite uses a deterministic synthetic generator with controlled latency, packet loss, source reliability and conflict pressure. Sentinel Ω uses a pre-exercise source-reliability history; baselines do not. Treat this as an algorithmic ablation study, not evidence of operational performance.</div>
+      <div className="benchmark-note"><strong>Methodology.</strong> The suite uses a deterministic synthetic generator with controlled latency, packet loss, source reliability and conflict pressure. Sentinel Ω uses a pre-exercise source-reliability history; baselines do not. AURC summarizes risk across the full confidence-ranked coverage curve; matched-coverage accuracy evaluates every method on the same coverage target as Sentinel. Treat this as an algorithmic ablation study, not evidence of operational performance.</div>
     </section>
     <aside className="benchmark-side">
       <div className="eyebrow">WHAT IS BEING TESTED</div>
@@ -475,7 +475,8 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
         <div><b>01</b><span><strong>Same evidence</strong> Every method sees the same generated reports.</span></div>
         <div><b>02</b><span><strong>Same truth</strong> Ground truth is known only to the benchmark scorer.</span></div>
         <div><b>03</b><span><strong>Same conditions</strong> Delay, loss and contradiction are parameterized.</span></div>
-        <div><b>04</b><span><strong>Auditable metrics</strong> Accuracy, false confidence, Brier score and abstention are recorded.</span></div>
+        <div><b>04</b><span><strong>Auditable metrics</strong> Accuracy, false confidence, Brier score, ECE, AURC and abstention are recorded.</span></div>
+         <div><b>05</b><span><strong>Matched coverage</strong> Confidence ranking is evaluated at the same coverage target across methods, reducing the benefit of simply abstaining more.</span></div>
       </div>
       <div className="panel-divider"></div>
       <div className="eyebrow">RESEARCH CLAIM</div>
