@@ -76,9 +76,12 @@ Trainee skill and learned source-reliability history are persisted locally so re
 
 The UI includes an optional Visualization Lab using open-source browser libraries loaded from pinned public CDNs:
 
-- **Cytoscape.js 3.34.3** — interactive graph visualization for the synthetic communication/evidence network. MIT licensed. citeturn130193search0turn786432search3
-- **Apache ECharts 6.1.0** — interactive multi-series evidence/confidence analytics. Apache-2.0 licensed. citeturn786432search1
-- **vis-timeline 8.5.4** — zoomable/pannable event and decision timeline. Apache-2.0 OR MIT licensed. citeturn792693search0turn786432search5
+- **Cytoscape.js 3.34.3** — interactive graph visualization for the synthetic communication/evidence network. MIT licensed. ([GitHub](https://github.com/cytoscape/cytoscape.js))
+- **Apache ECharts 6.1.0** — interactive multi-series evidence/confidence analytics. Apache-2.0 licensed. ([GitHub](https://github.com/apache/echarts))
+- **vis-timeline 8.5.4** — zoomable/pannable event and decision timeline. Apache-2.0 OR MIT licensed. ([GitHub](https://github.com/visjs/vis-timeline))
+
+- **Rerun 0.38.1** — multimodal time-aware 3D robotics viewer for point clouds, trajectories, text and time-series replay. MIT OR Apache-2.0. ([GitHub](https://github.com/rerun-io/rerun))
+- **Open3D 0.20.0** — 3D point-cloud, geometry and rendering companion viewer. MIT licensed. ([GitHub](https://github.com/isl-org/Open3D))
 
 These visualizations reuse the same synthetic reports, events and decisions already driving Sentinel Grid Ω; they do not introduce operational data.
 
@@ -109,6 +112,7 @@ See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, de
 7. Open **AAR & Replay** and move the replay slider.
 8. Show the ground-truth reveal, confidence gap, information-integrity score and audit fingerprint.
 9. In Director, press **GENERATE NEXT EXERCISE** to demonstrate the adaptive training loop.
-10. Open **Benchmark Lab** to reproduce the controlled 400-case comparison and inspect accuracy, selective accuracy, false-confidence, Brier, ECE and abstention metrics. The proposed engine now reports raw→calibrated Brier to make the calibration effect visible.
+10. Open **Benchmark Lab** to reproduce the controlled 400-case comparison and inspect accuracy, selective accuracy, false-confidence, Brier, ECE and abstention metrics.
+11. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views.
 
 The system is intentionally synthetic and software-only. It is not connected to weapons, operational networks or real-world targeting systems.
