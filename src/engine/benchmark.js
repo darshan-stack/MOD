@@ -1,4 +1,4 @@
-import { subjectiveLogicFuse, brierScore } from './decisionIntelligence.js';
+import { subjectiveLogicFuse, brierScore, expectedCalibrationError } from './decisionIntelligence.js';
 
 const LABELS = ['CLEAR', 'BLOCKED', 'UNRELIABLE'];
 const SOURCES = [
@@ -119,10 +119,18 @@ function scoreCase(prediction, truth) {
       }, 0)
     : brierScore(pTrue, correct);
 
+  const rawBrier = prediction.rawDistribution
+    ? prediction.rawDistribution.reduce((sum, item) => {
+        const outcome = item.label === truth ? 1 : 0;
+        return sum + Math.pow(item.probability - outcome, 2);
+      }, 0)
+    : brier;
+
   return {
     correct,
     falseConfident: !correct && prediction.confidence >= 70,
-    brier
+    brier,
+    rawBrier
   };
 }
 
@@ -135,7 +143,10 @@ function emptyAccumulator() {
     highConflictRuns: 0,
     appropriateAbstain: 0,
     brierSum: 0,
-    predicted: 0
+    rawBrierSum: 0,
+    predicted: 0,
+    calibrationSamples: [],
+    rawCalibrationSamples: []
   };
 }
 
@@ -147,6 +158,17 @@ function addTo(acc, prediction, truth, highConflict) {
   acc.abstain += prediction.abstain ? 1 : 0;
   acc.predicted += prediction.abstain ? 0 : 1;
   acc.brierSum += score.brier;
+  acc.rawBrierSum += score.rawBrier;
+  if (!prediction.abstain) {
+    acc.calibrationSamples.push({
+      probability: prediction.confidence / 100,
+      correct: score.correct
+    });
+    acc.rawCalibrationSamples.push({
+      probability: (prediction.rawConfidence ?? prediction.confidence) / 100,
+      correct: score.correct
+    });
+  }
   if (highConflict) {
     acc.highConflictRuns += 1;
     acc.appropriateAbstain += prediction.abstain ? 1 : 0;
@@ -240,6 +262,10 @@ export function benchmarkHeadline(result) {
     selectiveAccuracyDeltaVsReliability: Number((s.selectiveAccuracy - r.selectiveAccuracy).toFixed(1)),
     falseConfidenceDeltaVsReliability: Number((s.falseConfidenceRate - r.falseConfidenceRate).toFixed(1)),
     brierDeltaVsNaive: Number((s.brier - n.brier).toFixed(3)),
+    calibrationGain: Number((s.rawBrier - s.brier).toFixed(3)),
+    ece: s.ece,
+    rawEce: s.rawEce,
+    eceDeltaVsNaive: Number(((s.ece ?? 0) - (n.ece ?? 0)).toFixed(4)),
     coverage: s.coverage,
     abstentionRate: s.abstentionRate,
     appropriateAbstention: s.appropriateAbstention
