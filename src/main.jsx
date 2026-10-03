@@ -2,12 +2,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
-import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint } from './engine/decisionIntelligence';
+import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint, defaultGlicko2, glicko2Update, calibrationSummary, evaluateDecisionOutcome } from './engine/decisionIntelligence';
 
 const SCENARIOS = {
-  "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28 },
-  "CIPHER-11": { name: 'CIPHER-11 · Network Fracture', phase: '03 / cross-domain handoff', objective: 'Coordinate a small team while cyber and EW indicators disagree.', difficulty: 8, comms: 58, latency: 92, dropout: 36, conflict: 46 },
-  "NORTHSTAR-03": { name: 'NORTHSTAR-03 · Quiet Window', phase: '01 / baseline', objective: 'Build a reliable baseline before the information picture degrades.', difficulty: 3, comms: 16, latency: 28, dropout: 7, conflict: 8 }
+  "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28, routeTruth: 'CLEAR' },
+  "CIPHER-11": { name: 'CIPHER-11 · Network Fracture', phase: '03 / cross-domain handoff', objective: 'Coordinate a small team while cyber and EW indicators disagree.', difficulty: 8, comms: 58, latency: 92, dropout: 36, conflict: 46, routeTruth: 'BLOCKED' },
+  "NORTHSTAR-03": { name: 'NORTHSTAR-03 · Quiet Window', phase: '01 / baseline', objective: 'Build a reliable baseline before the information picture degrades.', difficulty: 3, comms: 16, latency: 28, dropout: 7, conflict: 8, routeTruth: 'CLEAR' }
 };
 
 const BASE_REPORTS = [
@@ -73,6 +73,9 @@ function App() {
   const [teamChannelDegraded, setTeamChannelDegraded] = useState(true);
   const [replayAt, setReplayAt] = useState(elapsed);
   const [ledgerFingerprint, setLedgerFingerprint] = useState('PENDING');
+  const [skill, setSkill] = useState(function() {
+    try { return JSON.parse(localStorage.getItem('sentinel-grid-glicko2') || 'null') || defaultGlicko2(); } catch (_) { return defaultGlicko2(); }
+  });
   const channelRef = useRef(null);
 
   const scenario = SCENARIOS[scenarioKey];
@@ -80,6 +83,7 @@ function App() {
   const fusedRoute = useMemo(function() { return robustFuse(routeEvidence, netHealth / 100); }, [routeEvidence, netHealth]);
   const integrityIndex = useMemo(function() { return informationIntegrityIndex(reports, netHealth, latency, dropout, conflict); }, [reports, netHealth, latency, dropout, conflict]);
   const confidenceGap = useMemo(function() { return computeCalibrationGap(decisions, reports); }, [decisions, reports]);
+  const calibration = useMemo(function() { return calibrationSummary(decisions); }, [decisions]);
 
   useEffect(function() {
     if (!running) return undefined;
@@ -88,6 +92,7 @@ function App() {
   }, [running]);
 
   useEffect(function() { setReplayAt(elapsed); }, [elapsed]);
+  useEffect(function() { try { localStorage.setItem('sentinel-grid-glicko2', JSON.stringify(skill)); } catch (_) {} }, [skill]);
   useEffect(function() { sha256Fingerprint({ scenarioKey: scenarioKey, reports: reports, decisions: decisions, events: events, messages: messages }).then(function(hash) { setLedgerFingerprint(hash.slice(0, 24).toUpperCase()); }); }, [scenarioKey, reports, decisions, events, messages]);
 
   useEffect(function() {
@@ -136,13 +141,14 @@ function App() {
   const metrics = useMemo(function() {
     var count = decisions.length;
     var avgConfidence = count ? Math.round(decisions.reduce(function(a, d) { return a + Number(d.confidence); }, 0) / count) : 0;
+    var scored = calibrationSummary(decisions);
     var evidenceCoverage = count ? Math.round(decisions.reduce(function(a, d) { return a + Math.min((d.evidence || []).length / 3, 1); }, 0) / count * 100) : 0;
     var contradictionUse = reports.some(function(r) { return r.state === 'conflict'; })
       ? clamp(52 + decisions.filter(function(d) { return (d.evidence || []).some(function(id) { var r = reports.find(function(x) { return x.id === id; }); return r && r.state === 'conflict'; }); }).length * 13)
       : 76;
     var teamCoherence = clamp(Math.round(netHealth * 0.45 + (100 - dropout) * 0.25 + (messages.length > 3 ? 25 : 15)));
-    return { count: count, avgConfidence: avgConfidence, evidenceCoverage: evidenceCoverage, contradictionUse: contradictionUse, teamCoherence: teamCoherence };
-  }, [decisions, reports, netHealth, dropout, messages.length]);
+    return { count: count, avgConfidence: avgConfidence, evidenceCoverage: evidenceCoverage, contradictionUse: contradictionUse, teamCoherence: teamCoherence, brier: scored.brier, accuracy: scored.accuracy, skillRating: Math.round(skill.rating), skillRd: Math.round(skill.rd) };
+  }, [decisions, reports, netHealth, dropout, messages.length, skill]);
 
   const focus = useMemo(function() {
     var out = [];
@@ -215,18 +221,35 @@ function App() {
 
   const logDecision = function() {
     if (!decisionText.trim()) return;
+    var currentActor = members.find(function(m) { return m.id === activeSeat; }) || members[0];
+    var decisionEvidence = reports.filter(function(r) { return selectedEvidence.indexOf(r.id) >= 0 && r.topic === 'route_echo'; });
+    var evidenceState = robustFuse(decisionEvidence.length ? decisionEvidence : routeEvidence, netHealth / 100);
+    var outcome = evaluateDecisionOutcome(decisionType, evidenceState, scenario.difficulty, scenario.routeTruth);
     var d = {
       id: 'D-' + String(decisions.length + 1).padStart(3, '0'),
       at: elapsed,
-      actor: activeSeat === 'you' ? 'You / OC' : members.find(function(m) { return m.id === activeSeat; }).name,
-      role: members.find(function(m) { return m.id === activeSeat; }).role,
+      actor: activeSeat === 'you' ? 'You / OC' : currentActor.name,
+      role: currentActor.role,
       action: decisionType,
       rationale: decisionText.trim(),
       confidence: Number(confidence),
       evidence: selectedEvidence,
+      fusedClaim: evidenceState.label,
+      belief: evidenceState.belief,
+      disbelief: evidenceState.disbelief,
+      uncertainty: evidenceState.uncertainty,
+      sufficiency: evidenceState.sufficiency,
+      correct: outcome.correct,
+      brier: outcome.brier,
+      itemRating: outcome.opponentRating
     };
     setDecisions(function(current) { return [d].concat(current); });
-    addEvent('DECISION', d.id + ' · ' + d.action + ' logged with ' + d.evidence.length + ' evidence item(s).');
+    if (activeSeat === 'you') {
+      setSkill(function(current) {
+        return glicko2Update(current, [{ opponentRating: d.itemRating, opponentRd: 120, score: outcome.score }]);
+      });
+    }
+    addEvent('DECISION', d.id + ' · ' + d.action + ' logged with ' + d.evidence.length + ' evidence item(s) · ' + (outcome.correct ? 'PASS' : 'REVIEW') + '.');
     broadcast({ type: 'DECISION', decision: d });
     setDecisionText('');
     setSelectedEvidence([]);
@@ -340,8 +363,10 @@ function App() {
               </section>
 
               <aside className="right-column">
-                <div className="panel-head"><div><div className="eyebrow">INFORMATION INTEGRITY</div><h2>Trust state</h2></div><span className="lock">◎</span></div><p className="panel-note">Trust combines source history, freshness, corroboration and network health. Hidden truth is withheld until AAR.</p><div className={'ai-advisor ' + (fusedRoute.abstain ? 'abstain' : '')}><div><div className="eyebrow">DECISION SAFETY KERNEL</div><strong>{fusedRoute.abstain ? 'INSUFFICIENT EVIDENCE' : 'EVIDENCE STATE STABLE'}</strong><p>{fusedRoute.abstain ? 'Training cue: verify or seek corroboration before committing.' : 'Training cue: current evidence is sufficiently aligned for the exercise.'}</p></div><div className="advisor-grid"><div><small>FUSED CLAIM</small><b>{fusedRoute.label}</b></div><div><small>CONFIDENCE</small><b>{fusedRoute.confidence}%</b></div><div><small>CONFLICT</small><b>{fusedRoute.conflict}%</b></div><div><small>SUFFICIENCY</small><b>{fusedRoute.sufficiency}%</b></div></div></div>
+                <div className="panel-head"><div><div className="eyebrow">INFORMATION INTEGRITY</div><h2>Trust state</h2></div><span className="lock">◎</span></div><p className="panel-note">Trust combines source history, freshness, corroboration and network health. Hidden truth is withheld until AAR.</p><div className={'ai-advisor ' + (fusedRoute.abstain ? 'abstain' : '')}><div><div className="eyebrow">DECISION SAFETY KERNEL</div><strong>{fusedRoute.abstain ? 'INSUFFICIENT EVIDENCE' : 'EVIDENCE STATE STABLE'}</strong><p>{fusedRoute.abstain ? 'Training cue: verify or seek corroboration before committing.' : 'Training cue: current evidence is sufficiently aligned for the exercise.'}</p></div><div className="advisor-grid"><div><small>FUSED CLAIM</small><b>{fusedRoute.label}</b></div><div><small>BELIEF</small><b>{fusedRoute.belief}%</b></div><div><small>DISBELIEF</small><b>{fusedRoute.disbelief}%</b></div><div><small>UNCERTAINTY</small><b>{fusedRoute.uncertainty}%</b></div><div><small>CONFLICT</small><b>{fusedRoute.conflict}%</b></div><div><small>SUFFICIENCY</small><b>{fusedRoute.sufficiency}%</b></div></div></div>
                 <div className="trust-stack">{trustRows.map(function(r){return <div className="trust-card" key={r.id}><div><span>{r.id}</span><small>{r.source}</small></div><strong>{r.trust}%</strong><div className="trust-bar"><span style={{width: r.trust + '%'}}></span></div></div>;})}</div>
+                <div className="panel-divider"></div>
+                <div className="skill-card"><div><div className="eyebrow">TRAINEE SKILL MODEL</div><strong>GLICKO-2 RATING</strong></div><div className="skill-values"><b>{Math.round(skill.rating)}</b><span>± {Math.round(2 * skill.rd)}</span></div><div className="skill-bar"><span style={{width: Math.max(6, Math.min(100, (skill.rating - 1000) / 10)) + '%'}}></span></div><small>RD {Math.round(skill.rd)} · σ {Number(skill.sigma).toFixed(3)} · {skill.rounds} scored rounds</small></div>
                 <div className="panel-divider"></div>
                 <div className="panel-head small"><h3>Adaptive training focus</h3><span className="badge live">{focus.length} FOCUS</span></div><div className="focus-list">{focus.map(function(f){return <div key={f}><span>◎</span>{f}</div>;})}</div>
                 <div className="panel-divider"></div>
@@ -349,7 +374,7 @@ function App() {
               </aside>
             </div>
 
-            <section className="bottom-grid"><div className="timeline-panel"><div className="section-head compact"><div><div className="eyebrow">LIVE EVENT STREAM</div><h2>What changed</h2></div><span className="live-indicator"><i className="pulse"></i> CAPTURING</span></div><div className="event-list">{events.slice(-6).reverse().map(function(e,i){return <div className="event-row" key={e.at + '-' + i}><span className="event-time">T+{fmtClock(e.at)}</span><span className={'badge ' + e.tag.toLowerCase()}>{e.tag}</span><span>{e.text}</span></div>;})}</div></div><div className="analytics-panel"><div className="section-head compact"><div><div className="eyebrow">DECISION INTELLIGENCE</div><h2>Training telemetry</h2></div><span className="micro-label">SYNTHETIC</span></div><div className="metric-grid"><Metric label="DECISIONS" value={metrics.count}/><Metric label="EVIDENCE COVERAGE" value={metrics.evidenceCoverage + '%'}/><Metric label="CONTRADICTION" value={metrics.contradictionUse + '%'}/><Metric label="TEAM COHERENCE" value={metrics.teamCoherence + '%'}/><Metric label="INTEGRITY" value={integrityIndex + '%'}/><Metric label="CONF. GAP" value={confidenceGap + '%'}/></div></div></section>
+            <section className="bottom-grid"><div className="timeline-panel"><div className="section-head compact"><div><div className="eyebrow">LIVE EVENT STREAM</div><h2>What changed</h2></div><span className="live-indicator"><i className="pulse"></i> CAPTURING</span></div><div className="event-list">{events.slice(-6).reverse().map(function(e,i){return <div className="event-row" key={e.at + '-' + i}><span className="event-time">T+{fmtClock(e.at)}</span><span className={'badge ' + e.tag.toLowerCase()}>{e.tag}</span><span>{e.text}</span></div>;})}</div></div><div className="analytics-panel"><div className="section-head compact"><div><div className="eyebrow">DECISION INTELLIGENCE</div><h2>Training telemetry</h2></div><span className="micro-label">SYNTHETIC</span></div><div className="metric-grid"><Metric label="DECISIONS" value={metrics.count}/><Metric label="EVIDENCE COVERAGE" value={metrics.evidenceCoverage + '%'}/><Metric label="CONTRADICTION" value={metrics.contradictionUse + '%'}/><Metric label="TEAM COHERENCE" value={metrics.teamCoherence + '%'}/><Metric label="INTEGRITY" value={integrityIndex + '%'}/><Metric label="CONF. GAP" value={confidenceGap + '%'}/><Metric label="BRIER" value={calibration.brier === null ? '—' : calibration.brier}/><Metric label="SKILL" value={Math.round(skill.rating)}/></div></div></section>
           </>
         )}
 
@@ -383,7 +408,7 @@ function Control({ label, value, suffix, onChange }) {
 
 function AARPanel({ decisions, events, reports, metrics, focus, replayAt, setReplayAt, elapsed, exportAAR, integrityIndex, confidenceGap, fusedRoute, ledgerFingerprint }) {
   var replayEvents = events.filter(function(e){return e.at <= replayAt;}).slice(-5).reverse();
-  return <div className="aar-layout"><section className="aar-summary"><div className="section-head"><div><div className="eyebrow">AFTER-ACTION REVIEW</div><h2>Decision reconstruction</h2></div><div className="export-actions"><button className="ghost-btn" onClick={() => exportAAR('html')}>HTML</button><button className="primary-btn" onClick={() => exportAAR('json')}>JSON ↗</button></div></div><div className="score-row"><div><small>DECISIONS</small><strong>{metrics.count}</strong></div><div><small>AVG CONFIDENCE</small><strong>{metrics.avgConfidence}%</strong></div><div><small>EVIDENCE COVERAGE</small><strong>{metrics.evidenceCoverage}%</strong></div><div><small>TEAM COHERENCE</small><strong>{metrics.teamCoherence}%</strong></div></div><div className="aar-focus"><div><div className="eyebrow">ADAPTIVE TRAINING FINDINGS</div><h3>Observed focus areas</h3></div><div className="focus-pills">{focus.map(function(w){return <span key={w}>{w}</span>;})}</div></div><div className="aar-science"><div><small>INFORMATION INTEGRITY</small><strong>{integrityIndex}%</strong></div><div><small>CONFIDENCE GAP</small><strong>{confidenceGap}%</strong></div><div><small>FUSED CLAIM</small><strong>{fusedRoute.label} · {fusedRoute.confidence}%</strong></div><div><small>AUDIT FINGERPRINT</small><strong>{ledgerFingerprint}</strong></div></div><div className="replay-bar"><div className="replay-head"><span>REPLAY T+{fmtClock(replayAt)}</span><span className="muted">Reconstruct the information timeline</span></div><input type="range" min="0" max={Math.max(elapsed,1)} value={Math.min(replayAt,elapsed)} onChange={function(e){setReplayAt(Number(e.target.value));}}/></div><div className="aar-table"><div className="table-head"><span>TIME</span><span>ACTOR</span><span>ACTION</span><span>TRACE</span></div>{decisions.slice().sort(function(a,b){return a.at-b.at;}).map(function(d){return <div className="table-row" key={d.id}><span>T+{fmtClock(d.at)}</span><span>{d.actor}</span><span className="badge decision">{d.action}</span><span><strong>{d.rationale}</strong><small>{(d.evidence || []).length} evidence · {d.confidence}% confidence</small></span></div>;})}{!decisions.length && <div className="empty-state">No decisions recorded yet. Use the cockpit to create an auditable decision trace.</div>}</div></section><aside className="replay-card"><div className="eyebrow">GROUND TRUTH REVEAL</div><h3>What the trainee could not see</h3><p className="replay-note">Ground truth is intentionally hidden during play and appears only in AAR, preventing hindsight contamination.</p><div className="truth-list">{reports.map(function(r){return <div className="truth-row" key={r.id}><div><strong>{r.id}</strong><small>{r.source}</small></div><span>{r.truth}</span><b>{trustScore(r)}%</b></div>;})}</div><div className="panel-divider"></div><div className="eyebrow">REPLAY EVENTS</div><div className="replay-line">{replayEvents.map(function(e,i){return <div className="replay-item" key={e.at+'-'+i}><i className={i === 0 ? 'replay-dot current' : 'replay-dot'}></i><small>T+{fmtClock(e.at)}</small><span>{e.text}</span></div>;})}{!replayEvents.length && <div className="empty-state">Move the replay slider to reconstruct the exercise.</div>}</div></aside></div>;
+  return <div className="aar-layout"><section className="aar-summary"><div className="section-head"><div><div className="eyebrow">AFTER-ACTION REVIEW</div><h2>Decision reconstruction</h2></div><div className="export-actions"><button className="ghost-btn" onClick={() => exportAAR('html')}>HTML</button><button className="primary-btn" onClick={() => exportAAR('json')}>JSON ↗</button></div></div><div className="score-row"><div><small>DECISIONS</small><strong>{metrics.count}</strong></div><div><small>AVG CONFIDENCE</small><strong>{metrics.avgConfidence}%</strong></div><div><small>EVIDENCE COVERAGE</small><strong>{metrics.evidenceCoverage}%</strong></div><div><small>TEAM COHERENCE</small><strong>{metrics.teamCoherence}%</strong></div></div><div className="aar-science"><div><small>GLICKO-2 SKILL</small><strong>{metrics.skillRating} ± {metrics.skillRd}</strong></div><div><small>DECISION ACCURACY</small><strong>{metrics.accuracy === null ? '—' : metrics.accuracy + '%'}</strong></div><div><small>BRIER SCORE</small><strong>{metrics.brier === null ? '—' : metrics.brier}</strong></div><div><small>SL UNCERTAINTY</small><strong>{fusedRoute.uncertainty}%</strong></div></div><div className="aar-focus"><div><div className="eyebrow">ADAPTIVE TRAINING FINDINGS</div><h3>Observed focus areas</h3></div><div className="focus-pills">{focus.map(function(w){return <span key={w}>{w}</span>;})}</div></div><div className="aar-science"><div><small>INFORMATION INTEGRITY</small><strong>{integrityIndex}%</strong></div><div><small>CONFIDENCE GAP</small><strong>{confidenceGap}%</strong></div><div><small>FUSED CLAIM</small><strong>{fusedRoute.label} · {fusedRoute.confidence}%</strong></div><div><small>AUDIT FINGERPRINT</small><strong>{ledgerFingerprint}</strong></div></div><div className="replay-bar"><div className="replay-head"><span>REPLAY T+{fmtClock(replayAt)}</span><span className="muted">Reconstruct the information timeline</span></div><input type="range" min="0" max={Math.max(elapsed,1)} value={Math.min(replayAt,elapsed)} onChange={function(e){setReplayAt(Number(e.target.value));}}/></div><div className="aar-table"><div className="table-head"><span>TIME</span><span>ACTOR</span><span>ACTION</span><span>TRACE</span></div>{decisions.slice().sort(function(a,b){return a.at-b.at;}).map(function(d){return <div className="table-row" key={d.id}><span>T+{fmtClock(d.at)}</span><span>{d.actor}</span><span className="badge decision">{d.action}</span><span><strong>{d.rationale}</strong><small>{(d.evidence || []).length} evidence · {d.confidence}% confidence</small></span></div>;})}{!decisions.length && <div className="empty-state">No decisions recorded yet. Use the cockpit to create an auditable decision trace.</div>}</div></section><aside className="replay-card"><div className="eyebrow">GROUND TRUTH REVEAL</div><h3>What the trainee could not see</h3><p className="replay-note">Ground truth is intentionally hidden during play and appears only in AAR, preventing hindsight contamination.</p><div className="truth-list">{reports.map(function(r){return <div className="truth-row" key={r.id}><div><strong>{r.id}</strong><small>{r.source}</small></div><span>{r.truth}</span><b>{trustScore(r)}%</b></div>;})}</div><div className="panel-divider"></div><div className="eyebrow">REPLAY EVENTS</div><div className="replay-line">{replayEvents.map(function(e,i){return <div className="replay-item" key={e.at+'-'+i}><i className={i === 0 ? 'replay-dot current' : 'replay-dot'}></i><small>T+{fmtClock(e.at)}</small><span>{e.text}</span></div>;})}{!replayEvents.length && <div className="empty-state">Move the replay slider to reconstruct the exercise.</div>}</div></aside></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
