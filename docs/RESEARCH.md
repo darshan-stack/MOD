@@ -36,15 +36,19 @@ Current prototype combines this prior with freshness, report confidence and corr
 Reference:
 https://www.sciencedirect.com/org/science/article/pii/S1546221825004321
 
-### 3. Conflict-tolerant evidence fusion
+### 3. Conflict-tolerant evidence fusion — Subjective Logic
 
-The prototype uses reliability-weighted OWA evidence fusion rather than blindly averaging reports. The purpose is to reduce single-source dominance when evidence conflicts.
+The prototype now represents each binary claim as a Subjective Logic opinion:
 
-Recent evidence-fusion literature continues to document the difficulty of highly conflicting evidence for classical Dempster-Shafer combination rules, and recent work explores reliability-aware and conflict-aware weighting.
+**ω = (belief, disbelief, uncertainty, base rate)**
 
-References:
-https://www.sciencedirect.com/science/article/pii/S0020025526001040
-https://www.sciencedirect.com/science/article/pii/S0952197625030246
+Report reliability, freshness, confidence, corroboration and channel health determine how much evidence mass leaves the uncertainty bucket. Independent opinions are then fused with a conservative consensus operator. The projected probability is **belief + base rate × uncertainty**, while the uncertainty component remains visible to the trainee.
+
+This is intentionally different from collapsing all reports into a single confidence number. Under contradiction, Sentinel Grid can surface a high-uncertainty state and abstain.
+
+Reference:
+A. Jøsang, *Subjective Logic: A Formalism for Reasoning Under Uncertainty*, Springer, 2016.
+https://folk.uio.no/josang/sl/
 
 ### 4. Abstention / insufficient-evidence state
 
@@ -81,7 +85,25 @@ References:
 https://doi.org/10.1177/1555343412444606
 https://doi.org/10.1177/1555343412449626
 
-### 7. Adaptive exercise selection
+### 7. Trainee skill estimation — Glicko-2
+
+Each trainee profile has a rating, rating deviation (RD) and volatility (σ). A scored exercise decision is treated as an item with a difficulty-derived opponent rating on the trainer's internal scale. Correct/incorrect decision outcomes update the profile, while RD communicates how uncertain the current skill estimate is.
+
+The implementation follows the published Glicko-2 equations and iterative volatility update. The current prototype performs an online update after each scored decision for immediate UI feedback; a production evaluator can batch decisions into exercise-level rating periods.
+
+Reference:
+Mark E. Glickman, *The Glicko-2 Rating System*.
+https://www.glicko.net/glicko/glicko2.html
+
+### 8. Confidence calibration — Brier score
+
+Each scored decision stores a proper squared-probability loss:
+
+Brier = (p − y)^2
+
+where p is trainee confidence in [0,1] and y is the binary training outcome. Lower is better. The AAR reports mean Brier score and decision accuracy across scored decisions.
+
+### 9. Adaptive exercise selection
 
 After a run, the system extracts observed focus areas such as stale-data handling, contradiction handling, confidence calibration and decision tempo.
 
@@ -117,6 +139,10 @@ https://www.lineofdeparture.army.mil/Journals/Army-Communicator/Archive/Fall-202
 https://arl.devcom.army.mil/arlreport/arl-tr-10070/
 https://ssi.armywarcollege.edu/SSI-Media/Recent-Publications/Article/4564888/fighting-with-data-design-implications-for-ai-enabled-mission-command-systems/
 https://arl.devcom.army.mil/arlreport/arl-tr-10403/
+
+## Implementation notes
+
+The UI now exposes the Subjective Logic state directly as belief, disbelief, uncertainty, conflict and sufficiency. The AAR exposes Glicko-2 skill, RD, decision accuracy and Brier score. Skill persistence is browser-local via localStorage in the current software-only prototype.
 
 ## Auditability
 
