@@ -72,6 +72,16 @@ The system is designed as a synthetic training environment, not an operational c
 Trainee skill and learned source-reliability history are persisted locally so repeated exercise sessions update both the Glicko-2 profile and the evidence model.
 
 
+## Open-source visualization stack
+
+The UI includes an optional Visualization Lab using open-source browser libraries loaded from pinned public CDNs:
+
+- **Cytoscape.js 3.34.3** — interactive graph visualization for the synthetic communication/evidence network. MIT licensed. citeturn130193search0turn786432search3
+- **Apache ECharts 6.1.0** — interactive multi-series evidence/confidence analytics. Apache-2.0 licensed. citeturn786432search1
+- **vis-timeline 8.5.4** — zoomable/pannable event and decision timeline. Apache-2.0 OR MIT licensed. citeturn792693search0turn786432search5
+
+These visualizations reuse the same synthetic reports, events and decisions already driving Sentinel Grid Ω; they do not introduce operational data.
+
 ## Research-informed engine
 
 The decision-intelligence kernel uses:
