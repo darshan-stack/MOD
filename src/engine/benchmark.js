@@ -134,7 +134,8 @@ function emptyAccumulator() {
     abstain: 0,
     highConflictRuns: 0,
     appropriateAbstain: 0,
-    brierSum: 0
+    brierSum: 0,
+    predicted: 0
   };
 }
 
@@ -144,6 +145,7 @@ function addTo(acc, prediction, truth, highConflict) {
   acc.correct += score.correct ? 1 : 0;
   acc.falseConfident += score.falseConfident ? 1 : 0;
   acc.abstain += prediction.abstain ? 1 : 0;
+  acc.predicted += prediction.abstain ? 0 : 1;
   acc.brierSum += score.brier;
   if (highConflict) {
     acc.highConflictRuns += 1;
@@ -154,7 +156,9 @@ function addTo(acc, prediction, truth, highConflict) {
 function finalize(acc) {
   return {
     runs: acc.runs,
-    accuracy: Number((acc.correct / Math.max(acc.runs - 0, 1) * 100).toFixed(1)),
+    accuracy: Number((acc.correct / Math.max(acc.runs, 1) * 100).toFixed(1)),
+    coverage: Number((acc.predicted / Math.max(acc.runs, 1) * 100).toFixed(1)),
+    selectiveAccuracy: acc.predicted ? Number((acc.correct / acc.predicted * 100).toFixed(1)) : null,
     falseConfidenceRate: Number((acc.falseConfident / Math.max(acc.runs, 1) * 100).toFixed(1)),
     abstentionRate: Number((acc.abstain / Math.max(acc.runs, 1) * 100).toFixed(1)),
     appropriateAbstention: acc.highConflictRuns
