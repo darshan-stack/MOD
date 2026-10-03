@@ -242,13 +242,15 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
 
   return {
     label: best.label,
-    confidence: Math.round(best.projected * 100),
+    // Confidence shown to the trainee is belief mass, not the full projected probability.
+    // This prevents epistemic uncertainty from masquerading as confidence.
+    confidence: Math.round(best.opinion.belief * 100),
     belief: Math.round(best.opinion.belief * 100),
     disbelief: Math.round(best.opinion.disbelief * 100),
     uncertainty: Math.round(best.opinion.uncertainty * 100),
     conflict: Math.round(conflict * 100),
     sufficiency: Math.round(sufficiency * 100),
-    abstain: uncertainty > 0.40 || best.projected < 0.60 || conflict > 0.55 || independentSources < 2,
+    abstain: sufficiency < 0.52 || best.projected < 0.50 || independentSources < 2,
     method: 'SUBJECTIVE_LOGIC',
     distribution: candidates.map(candidate => ({
       label: candidate.label,
