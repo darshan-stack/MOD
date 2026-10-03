@@ -102,7 +102,7 @@ def main() -> None:
     # Represent the currently fused route as a compact synthetic corridor.
     route_x = np.linspace(-9, 9, 100)
     route = np.stack([route_x, np.sin(route_x * 0.55) * 1.4, np.zeros_like(route_x) + 0.05], axis=1)
-    rr.log("world/route_echo", rr.LineStrips3D(route, colors=[100, 190, 175], radii=0.04), static=True)
+    rr.log("world/route_echo", rr.LineStrips3D([route], colors=[100, 190, 175]), static=True)
 
     # Time-series telemetry.
     network = float(bundle.get("network", {}).get("netHealth", 0))
@@ -154,6 +154,14 @@ def main() -> None:
         print(f"Saved Rerun recording: {args.save}")
     else:
         print("Rerun viewer ready. Drag/zoom the 3D scene and scrub the exercise timeline.")
+
+    if args.web_viewer:
+        import time
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nShutting down Rerun web viewer…")
 
 
 if __name__ == "__main__":
