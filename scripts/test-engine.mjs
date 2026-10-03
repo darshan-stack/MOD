@@ -96,12 +96,32 @@ assert(benchmark.methods.naive.runs === 400);
 assert(benchmark.methods.sentinel.runs === 400);
 assert(benchmark.methods.sentinel.appropriateAbstention >= 0);
 assert(benchmark.methods.sentinel.appropriateAbstention <= 100);
+assert(benchmark.methods.sentinel.aurc !== null);
+assert(benchmark.methods.sentinel.matchedSelectiveAccuracy !== null);
+assert.equal(
+  benchmark.methods.sentinel.matchedCoverage,
+  benchmark.methods.sentinel.coverage
+);
 assert.equal(Object.keys(benchmark.byCondition).length, 4);
 
 console.log('benchmark suite checks: PASS');
 console.log(JSON.stringify({
   totalRuns: benchmark.totalRuns,
   headline,
+  riskCoverage: {
+    naive: {
+      aurc: benchmark.methods.naive.aurc,
+      matchedSelectiveAccuracy: benchmark.methods.naive.matchedSelectiveAccuracy
+    },
+    reliability: {
+      aurc: benchmark.methods.reliability.aurc,
+      matchedSelectiveAccuracy: benchmark.methods.reliability.matchedSelectiveAccuracy
+    },
+    sentinel: {
+      aurc: benchmark.methods.sentinel.aurc,
+      matchedSelectiveAccuracy: benchmark.methods.sentinel.matchedSelectiveAccuracy
+    }
+  },
   overall: {
     naive: benchmark.methods.naive,
     freshness: benchmark.methods.freshness,
