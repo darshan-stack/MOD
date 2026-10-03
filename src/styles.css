@@ -449,7 +449,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
 .benchmark-delta small{display:block;font:8px 'DM Mono';color:#66828e;line-height:1.3}
 .benchmark-delta strong{display:block;font:15px 'DM Mono';color:#dfeff0;margin-top:7px}
 .benchmark-table{border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#08131b}
-.benchmark-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.2fr;gap:10px;align-items:center;padding:12px 11px;border-bottom:1px solid #172d39;color:#afc1c7;font:10px 'DM Mono'}
+.benchmark-row{display:grid;grid-template-columns:1.35fr repeat(4,1fr);gap:10px;align-items:center;padding:12px 11px;border-bottom:1px solid #172d39;color:#afc1c7;font:10px 'DM Mono'}
 .benchmark-row:last-child{border-bottom:0}
 .benchmark-head{background:#0a171f;color:#64818e;font:8px 'DM Mono';letter-spacing:.8px}
 .benchmark-row>span:first-child strong{display:block;color:#dbeaec;font-size:10px}
