@@ -7,7 +7,11 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node scripts/test-engine.mjs"
+    "test": "node scripts/test-engine.mjs",
+    "viz:install": "python3 -m pip install -r viz/requirements.txt",
+    "viz:rerun": "python3 viz/rerun_sentinel.py",
+    "viz:open3d": "python3 viz/open3d_sentinel.py",
+    "viz:3d": "python3 viz/rerun_sentinel.py"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
