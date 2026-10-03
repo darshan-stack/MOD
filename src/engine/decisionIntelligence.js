@@ -167,6 +167,40 @@ export function projectedProbability(opinion) {
   return clamp(opinion.belief + opinion.baseRate * opinion.uncertainty);
 }
 
+export function temperatureScaleDistribution(distribution, temperature = 1) {
+  const t = Math.max(Number(temperature) || 1, 0.25);
+  if (!distribution.length) return [];
+  const logits = distribution.map(item => Math.log(Math.max(clamp(item.probability), 1e-9)) / t);
+  const maxLogit = Math.max(...logits);
+  const exps = logits.map(x => Math.exp(x - maxLogit));
+  const total = exps.reduce((sum, x) => sum + x, 0) || 1;
+  return distribution.map((item, i) => ({
+    label: item.label,
+    probability: Number((exps[i] / total).toFixed(6))
+  }));
+}
+
+export function expectedCalibrationError(samples = [], binCount = 10) {
+  if (!samples.length) return null;
+  const bins = Array.from({ length: binCount }, () => ({ n: 0, p: 0, y: 0 }));
+  samples.forEach(sample => {
+    const p = clamp(Number(sample.probability ?? sample.confidence ?? 0));
+    const y = sample.correct ? 1 : 0;
+    const index = Math.min(binCount - 1, Math.floor(p * binCount));
+    bins[index].n += 1;
+    bins[index].p += p;
+    bins[index].y += y;
+  });
+  const total = samples.length;
+  return Number(bins
+    .filter(bin => bin.n)
+    .reduce((sum, bin) => {
+      const gap = Math.abs(bin.p / bin.n - bin.y / bin.n);
+      return sum + (bin.n / total) * gap;
+    }, 0)
+    .toFixed(4));
+}
+
 export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
   if (!reports.length) {
     return {
@@ -240,22 +274,34 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
     0.18 * uncertainty
   );
 
+  const rawDistribution = candidates.map(candidate => ({
+    label: candidate.label,
+    probability: Number(candidate.projected.toFixed(6))
+  }));
+
+  /*
+   * Uncertainty-aware temperature scaling is a confidence calibration layer,
+   * not a label-changing rule. As uncertainty or contradiction rises, the
+   * distribution is softened so the UI does not expose unjustified certainty.
+   */
+  const calibrationTemperature = 1.15 + 1.15 * uncertainty + 0.55 * conflict;
+  const distribution = temperatureScaleDistribution(rawDistribution, calibrationTemperature);
+  const calibratedBest = distribution[0];
+
   return {
     label: best.label,
-    // Confidence shown to the trainee is belief mass, not the full projected probability.
-    // This prevents epistemic uncertainty from masquerading as confidence.
-    confidence: Math.round(best.opinion.belief * 100),
+    confidence: Math.round(calibratedBest.probability * 100),
+    rawConfidence: Math.round(best.projected * 100),
     belief: Math.round(best.opinion.belief * 100),
     disbelief: Math.round(best.opinion.disbelief * 100),
     uncertainty: Math.round(best.opinion.uncertainty * 100),
     conflict: Math.round(conflict * 100),
     sufficiency: Math.round(sufficiency * 100),
     abstain: sufficiency < 0.52 || best.projected < 0.50 || independentSources < 2,
-    method: 'SUBJECTIVE_LOGIC',
-    distribution: candidates.map(candidate => ({
-      label: candidate.label,
-      probability: Number(candidate.projected.toFixed(6))
-    })),
+    method: 'SUBJECTIVE_LOGIC_CALIBRATED',
+    calibrationTemperature: Number(calibrationTemperature.toFixed(2)),
+    distribution,
+    rawDistribution,
     contributors: best.contributors
   };
 }
