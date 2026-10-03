@@ -379,7 +379,8 @@ export function glicko2Update(player = defaultGlicko2(), results = []) {
 
   let guard = 0;
   while (Math.abs(B - A) > GLICKO_EPSILON && guard < 100) {
-    const C = A + ((A - B) * fA) / Math.max(fB - fA, 1e-12);
+    const deltaF = fB - fA;
+    const C = A + ((A - B) * fA) / (Math.abs(deltaF) > 1e-12 ? deltaF : (deltaF < 0 ? -1e-12 : 1e-12));
     const fC = volatilityFunction(C, delta, phi, v, a);
 
     if (fC * fB < 0) {
