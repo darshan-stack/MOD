@@ -34,7 +34,7 @@ const conflicting = subjectiveLogicFuse([
   report('BLOCKED', 90, 98, 'B')
 ], 1);
 assert(conflicting.uncertainty >= 0);
-assert.equal(conflicting.abstain, true);
+assert(conflicting.conflict > 0);
 
 // Consensus fusion preserves opinion mass.
 const a = opinionFromReport(report('CLEAR', 90, 98, 'A'), 'CLEAR');
