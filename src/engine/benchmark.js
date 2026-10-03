@@ -234,10 +234,13 @@ export function runBenchmark({ runsPerCondition = 100, seed = 20261003 } = {}) {
 export function benchmarkHeadline(result) {
   const s = result.methods.sentinel;
   const n = result.methods.naive;
+  const r = result.methods.reliability;
   return {
     accuracyDeltaVsNaive: Number((s.accuracy - n.accuracy).toFixed(1)),
-    falseConfidenceDeltaVsNaive: Number((s.falseConfidenceRate - n.falseConfidenceRate).toFixed(1)),
+    selectiveAccuracyDeltaVsReliability: Number((s.selectiveAccuracy - r.selectiveAccuracy).toFixed(1)),
+    falseConfidenceDeltaVsReliability: Number((s.falseConfidenceRate - r.falseConfidenceRate).toFixed(1)),
     brierDeltaVsNaive: Number((s.brier - n.brier).toFixed(3)),
+    coverage: s.coverage,
     abstentionRate: s.abstentionRate,
     appropriateAbstention: s.appropriateAbstention
   };
