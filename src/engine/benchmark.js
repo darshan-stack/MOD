@@ -186,7 +186,10 @@ function finalize(acc) {
     appropriateAbstention: acc.highConflictRuns
       ? Number((acc.appropriateAbstain / acc.highConflictRuns * 100).toFixed(1))
       : null,
-    brier: Number((acc.brierSum / Math.max(acc.runs, 1)).toFixed(3))
+    brier: Number((acc.brierSum / Math.max(acc.runs, 1)).toFixed(3)),
+    rawBrier: Number((acc.rawBrierSum / Math.max(acc.runs, 1)).toFixed(3)),
+    ece: expectedCalibrationError(acc.calibrationSamples),
+    rawEce: expectedCalibrationError(acc.rawCalibrationSamples)
   };
 }
 
