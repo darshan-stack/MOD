@@ -1,0 +1,4 @@
+# High-end 3D visualization companion stack
+rerun-sdk==0.38.1
+open3d==0.20.0
+numpy>=2.0,<3.0
