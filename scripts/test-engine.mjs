@@ -11,6 +11,7 @@ import {
 const report = (stance, confidence=90, freshness=95, source='A') => ({
   id: source + '-' + stance,
   source,
+  topic: 'route_echo',
   stance,
   confidence,
   freshness,
