@@ -494,3 +494,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
 .vis-timeline-canvas .vis-item{background:#16343c;border-color:#4b8081;color:#d8eeee}
 .vis-timeline-canvas .vis-item-content{padding:5px 7px}
 @media(max-width:1050px){.viz-banner{flex-direction:column}.viz-metrics{align-self:stretch;grid-template-columns:repeat(3,1fr)}.viz-grid{grid-template-columns:1fr}.viz-card.viz-timeline{grid-column:auto}}
+
+.viz-actions{display:flex;align-items:center;gap:10px;margin-top:13px;flex-wrap:wrap}
+.viz-command{padding:9px 10px;border:1px solid #25434e;background:#08131b;color:#7e9aa4;font:8px 'DM Mono';border-radius:5px}
+.viz-3d-stack{grid-column:1/-1}
+.viz-3d-callout{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.viz-3d-callout>div{border:1px solid #1e3b47;background:linear-gradient(180deg,#0d1d26,#09151d);padding:14px;border-radius:6px}
+.viz-3d-callout strong{display:block;font-size:12px;color:#d9eeee}
+.viz-3d-callout span{display:block;margin-top:5px;color:#718d97;font:9px 'DM Mono';line-height:1.5}
+@media(max-width:800px){.viz-3d-callout{grid-template-columns:1fr}.viz-3d-stack{grid-column:auto}}
