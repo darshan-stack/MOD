@@ -103,9 +103,9 @@ Brier = (p − y)^2
 
 where p is trainee confidence in [0,1] and y is the binary training outcome. Lower is better. The AAR reports mean Brier score and decision accuracy across scored decisions.
 
-The benchmark also applies an uncertainty-aware **temperature scaling** layer to the Subjective Logic distribution. Temperature rises with epistemic uncertainty and contradiction, softening the probability vector without changing the top label or the abstention rule. This separates the engine's evidence state from its displayed confidence and makes overconfidence measurable rather than implicit.
+An uncertainty-aware **temperature scaling** function is included for controlled calibration experiments. The current decision path does not apply it by default; the benchmark therefore keeps the Subjective Logic probability vector unchanged unless a calibration variant is shown to improve evaluation results.
 
-The benchmark reports **expected calibration error (ECE)** on covered decisions and keeps the uncalibrated Brier score alongside the calibrated score. A positive raw→calibrated Brier gain means the probability calibration reduced proper-score loss on the synthetic evaluation cases.
+The benchmark reports **expected calibration error (ECE)** on covered decisions, plus overall Brier and covered-only Brier. This separates probability quality for decisions that were acted on from the separate effect of abstention.
 
 ### 9. Adaptive exercise selection
 
