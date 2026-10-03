@@ -570,7 +570,7 @@ function VisualizationPanel({ reports, events, decisions, netHealth, latency, dr
         <p className="viz-note">Use the timeline to inspect information injections and decision events on a common temporal axis.</p>
       </section>
     </div>
-    <div className="viz-footer"><strong>Open-source references:</strong> Cytoscape.js provides graph visualization/analysis under MIT; Apache ECharts is Apache-2.0; vis-timeline is dual-licensed Apache-2.0/MIT. citeturn786432search3turn786432search1turn786432search5</div>
+    <div className="viz-footer"><strong>Open-source references:</strong> Cytoscape.js provides graph visualization/analysis under MIT; Apache ECharts is Apache-2.0; vis-timeline is dual-licensed Apache-2.0/MIT.</div>
   </div>;
 }
 
