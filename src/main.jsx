@@ -427,7 +427,7 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
             <div className="benchmark-number">{m.accuracy}%</div>
             <small>accuracy</small>
             <div className="benchmark-track"><span style={{width: (m.accuracy / maxAccuracy * 100) + '%'}}></span></div>
-            <div className="benchmark-mini"><span>Selective accuracy <b>{m.selectiveAccuracy === null ? '—' : m.selectiveAccuracy + '%'}</b></span><span>Coverage <b>{m.coverage}%</b></span><span>False confidence <b>{m.falseConfidenceRate}%</b></span><span>Brier <b>{m.brier}</b></span></div>
+            <div className="benchmark-mini"><span>Selective accuracy <b>{m.selectiveAccuracy === null ? '—' : m.selectiveAccuracy + '%'}</b></span><span>Coverage <b>{m.coverage}%</b></span><span>False confidence <b>{m.falseConfidenceRate}%</b></span><span>Brier <b>{m.brier}</b></span><span>ECE <b>{m.ece === null ? '—' : m.ece}</b></span>{key === 'sentinel' && <span>Raw→Cal Brier <b>{m.rawBrier} → {m.brier}</b></span>}</div>
           </div>;
         })}
       </div>
