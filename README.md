@@ -1,23 +1,70 @@
-# Sentinel Grid
 
-**Immersive multi-domain decision-making trainer for degraded communication environments.**
+# Sentinel Grid Ω
 
-Sentinel Grid is a web-based command training cockpit for land, air, cyber and EW scenarios. It deliberately models uncertainty rather than presenting a clean operating picture.
+Web-native multi-domain decision-making trainer for degraded communication environments — **SIH26248**.
 
-## Included in this prototype
+## What this build implements
 
-- Live common operating picture with stale, jammed and contradictory reports
-- Instructor controls for injecting delay, dropout and misinformation
-- Team channel with degraded-send state and role assignment
-- Decision log with confidence, rationale and replay timeline
-- AAR export as a downloadable JSON report
-- Browser-local demo state; no sensitive operational data or external services
+- Mid-exercise communication degradation: delay, dropout, freshness decay, conflict pressure and team-network split.
+- Multi-domain information ledger with confidence, freshness, corroboration and a derived trust state.
+- Hidden ground truth that remains inaccessible during play and is revealed during AAR.
+- Evidence-linked decisions: a trainee selects the information used and records rationale + confidence.
+- Multi-seat team coordination using the browser BroadcastChannel API; open the same Vite URL in two tabs for a local multiplayer demonstration.
+- Instructor scenario director with scenario presets, live friction controls, mid-exercise injection and real-time decision/event monitoring.
+- Adaptive training loop that diagnoses observed focus areas and generates the next exercise around them.
+- Replay slider for reconstruction and exportable AAR in JSON or standalone HTML.
+- Browser-local demo: no external operational services, no VR/AR hardware and no sensitive data.
 
-## Run locally
+## Run
 
-```bash
+~~~bash
 npm install
 npm run dev
-```
+~~~
 
-Then open the local Vite URL. `npm run build` creates the production bundle.
+Open the Vite URL shown in the terminal.
+
+For the presentation, open the same URL in two browser tabs. Use one as the instructor/director and one as the trainee/team seat. Inject a delay or conflicting report, transmit a team message, log an evidence-linked decision, then open AAR and move the replay slider.
+
+## Architecture
+
+~~~text
+Scenario Engine
+      |
+      v
+Information Integrity Layer
+      |
+      +-- confidence / freshness / corroboration
+      +-- delay / dropout / conflict injection
+      +-- hidden ground truth
+      |
+      v
+Team Decision Space
+      |
+      +-- multi-seat team room
+      +-- evidence selection
+      +-- rationale + confidence
+      |
+      v
+Decision Intelligence
+      |
+      +-- decision timeline
+      +-- evidence coverage
+      +-- contradiction handling
+      +-- team coherence
+      |
+      v
+AAR + Adaptive Director
+      |
+      +-- replay
+      +-- ground-truth reveal
+      +-- next exercise targeted at observed weaknesses
+~~~
+
+## Differentiation
+
+The prototype does not claim that no comparable defence technology exists. Public defence systems already address pieces such as wargaming, adaptive training and automated AAR. The implementation focus here is the explicit, auditable chain:
+
+**information state → evidence selected → human decision → rationale/confidence → hidden truth → adaptive next exercise**
+
+The system is designed as a synthetic training environment, not an operational command or targeting system.
