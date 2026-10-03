@@ -432,9 +432,9 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
         })}
       </div>
       <div className="benchmark-delta">
-        <div><small>ACCURACY Δ VS NAIVE</small><strong>{summary.accuracyDeltaVsNaive > 0 ? '+' : ''}{summary.accuracyDeltaVsNaive} pts</strong></div>
-        <div><small>FALSE-CONFIDENCE Δ</small><strong>{summary.falseConfidenceDeltaVsNaive > 0 ? '+' : ''}{summary.falseConfidenceDeltaVsNaive} pts</strong></div>
-        <div><small>BRIER Δ VS NAIVE</small><strong>{summary.brierDeltaVsNaive > 0 ? '+' : ''}{summary.brierDeltaVsNaive}</strong></div>
+        <div><small>SELECTIVE ACC Δ VS RELIABILITY</small><strong>{summary.selectiveAccuracyDeltaVsReliability > 0 ? '+' : ''}{summary.selectiveAccuracyDeltaVsReliability} pts</strong></div>
+        <div><small>FALSE-CONFIDENCE Δ VS RELIABILITY</small><strong>{summary.falseConfidenceDeltaVsReliability > 0 ? '+' : ''}{summary.falseConfidenceDeltaVsReliability} pts</strong></div>
+        <div><small>SENTINEL COVERAGE</small><strong>{summary.coverage}%</strong></div>
         <div><small>HIGH-CONFLICT ABSTENTION</small><strong>{summary.appropriateAbstention}%</strong></div>
       </div>
       <div className="section-head compact"><div><div className="eyebrow">STRESS MATRIX</div><h2>Performance by communication regime</h2></div><span className="micro-label">Same generator · same seed</span></div>
