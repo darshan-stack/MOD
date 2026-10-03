@@ -414,25 +414,27 @@ export function scenarioRating(difficulty = 5) {
   return Math.round(1000 + clamp(Number(difficulty), 1, 10) * 100);
 }
 
-export function evaluateDecisionOutcome(action, fused, scenarioDifficulty = 5) {
+export function evaluateDecisionOutcome(action, fused, scenarioDifficulty = 5, groundTruthLabel = fused.label) {
   const expectedAction = {
     CLEAR: 'HOLD',
     BLOCKED: 'REROUTE',
     UNRELIABLE: 'VERIFY',
     ANOMALY: 'REPORT',
     PRESENT: 'REPORT'
-  }[fused.label];
+  }[groundTruthLabel];
 
   let correct = action === expectedAction;
-  let rationale = 'Decision matches the current fused assessment.';
+  let rationale = correct
+    ? 'Decision is consistent with the revealed ground-truth outcome.'
+    : 'Decision does not match the exercise ground truth.';
 
   if (fused.abstain) {
+    // In a training setting, explicit deferral is rewarded when the evidence
+    // state is genuinely insufficient, regardless of the hidden outcome.
     correct = action === 'VERIFY';
     rationale = correct
-      ? 'Appropriate abstention: the evidence state did not support a confident commitment.'
-      : 'The evidence state was insufficient; verification was the safer training response.';
-  } else if (!correct) {
-    rationale = 'Decision diverges from the current fused assessment; review evidence and uncertainty.';
+      ? 'Appropriate abstention: evidence uncertainty justified verification.'
+      : 'Evidence was insufficient; verification would have been the safer response.';
   }
 
   return {
