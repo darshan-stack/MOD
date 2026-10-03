@@ -402,3 +402,28 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
   .status-strip{align-items:flex-start;padding:14px 16px;gap:14px;flex-direction:column}
   .status-metrics{width:100%;justify-content:space-between}
 }
+
+/* Decision-intelligence visual layer */
+.skill-card{
+  border:1px solid #285361;
+  background:
+    radial-gradient(circle at 90% 0%,rgba(134,222,215,.10),transparent 28%),
+    linear-gradient(180deg,#0e242d,#0a1820);
+  padding:13px;
+  border-radius:7px;
+  box-shadow:0 0 24px rgba(61,148,151,.07)
+}
+.skill-card>div:first-child{display:flex;justify-content:space-between;align-items:center}
+.skill-card>div:first-child strong{font:9px 'DM Mono';color:#9fd7d2;letter-spacing:.8px}
+.skill-values{display:flex;align-items:baseline;gap:8px;margin:10px 0 8px}
+.skill-values b{font:28px 'DM Mono';color:#e6f5f4;letter-spacing:-1px}
+.skill-values span{font:9px 'DM Mono';color:#6f8994}
+.skill-bar{height:5px;background:#162d36;border-radius:99px;overflow:hidden}
+.skill-bar span{display:block;height:100%;background:linear-gradient(90deg,#4aa4a4,#86ded7);border-radius:99px;box-shadow:0 0 12px rgba(134,222,215,.22)}
+.skill-card>small{display:block;font:8px 'DM Mono';color:#66828e;margin-top:9px}
+.advisor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.advisor-grid>div:nth-child(2) b,.advisor-grid>div:nth-child(3) b,.advisor-grid>div:nth-child(4) b{color:#dbeff0}
+.aar-science{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 18px}
+.aar-science>div{border:1px solid #1d3846;background:linear-gradient(180deg,#0d1d26,#09151d);padding:11px;border-radius:6px}
+.aar-science small{display:block;font:8px 'DM Mono';color:#668391;letter-spacing:.7px}
+.aar-science strong{display:block;font:13px 'DM Mono';color:#dfeff0;margin-top:7px}
