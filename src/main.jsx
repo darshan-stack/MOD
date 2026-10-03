@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint, defaultGlicko2, glicko2Update, calibrationSummary, evaluateDecisionOutcome } from './engine/decisionIntelligence';
+import { runBenchmark, benchmarkHeadline } from './engine/benchmark';
 
 const SCENARIOS = {
   "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28, routeTruth: 'CLEAR' },
@@ -73,6 +74,9 @@ function App() {
   const [teamChannelDegraded, setTeamChannelDegraded] = useState(true);
   const [replayAt, setReplayAt] = useState(elapsed);
   const [ledgerFingerprint, setLedgerFingerprint] = useState('PENDING');
+  const [benchmarkRun, setBenchmarkRun] = useState(1);
+  const benchmark = useMemo(function() { return runBenchmark({ runsPerCondition: 100, seed: 20261003 + benchmarkRun - 1 }); }, [benchmarkRun]);
+  const benchmarkSummary = useMemo(function() { return benchmarkHeadline(benchmark); }, [benchmark]);
   const [skill, setSkill] = useState(function() {
     try { return JSON.parse(localStorage.getItem('sentinel-grid-glicko2') || 'null') || defaultGlicko2(); } catch (_) { return defaultGlicko2(); }
   });
@@ -335,6 +339,7 @@ function App() {
           <button className={activeTab === 'cockpit' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('cockpit')}><span className="icon">◈</span>Decision cockpit</button>
           <button className={activeTab === 'team' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('team')}><span className="icon">⌁</span>Team room<em>{members.filter(function(m){return m.status === 'online';}).length}</em></button>
           <button className={activeTab === 'aar' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('aar')}><span className="icon">≡</span>AAR & replay</button>
+          <button className={activeTab === 'benchmark' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('benchmark')}><span className="icon">◫</span>Benchmark lab<em>{benchmark.totalRuns}</em></button>
           <div className="nav-label instructor-label">TRAINING DIRECTOR</div>
           <button className={activeTab === 'director' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('instructor'); setActiveTab('director'); }}><span className="icon">⚙</span>Exercise director</button>
           <button className="nav-item" onClick={() => exportAAR('html')}><span className="icon">⇩</span>Export AAR</button>
@@ -343,7 +348,7 @@ function App() {
       </aside>
 
       <main className="main">
-        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
+        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : activeTab === 'benchmark' ? 'Benchmark laboratory' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
 
         {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
 
@@ -379,6 +384,7 @@ function App() {
         )}
 
         {activeTab === 'team' && <TeamPanel members={members} activeSeat={activeSeat} joinSeat={joinSeat} messages={messages} messageText={messageText} setMessageText={setMessageText} sendMessage={sendMessage} degraded={teamChannelDegraded}/>}
+        {activeTab === 'benchmark' && <BenchmarkPanel benchmark={benchmark} summary={benchmarkSummary} onRerun={() => setBenchmarkRun(function(v){ return v + 1; })}/>} 
         {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} setNetHealth={setNetHealth} latency={latency} setLatency={setLatency} dropout={dropout} setDropout={setDropout} conflict={conflict} setConflict={setConflict} freshnessDecay={freshnessDecay} setFreshnessDecay={setFreshnessDecay} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise}/>}
         {activeTab === 'aar' && <AARPanel decisions={decisions} events={events} reports={reports} metrics={metrics} focus={focus} replayAt={replayAt} setReplayAt={setReplayAt} elapsed={elapsed} exportAAR={exportAAR} integrityIndex={integrityIndex} confidenceGap={confidenceGap} fusedRoute={fusedRoute} ledgerFingerprint={ledgerFingerprint}/>}
 
@@ -392,6 +398,76 @@ function Metric({ label, value }) { return <div className="metric"><small>{label
 
 function Presence(props) {
   return <button className={'presence-row ' + (props.active ? 'active' : '')} onClick={props.onClick}><div className={'mini-avatar ' + (props.active ? 'me' : '')}>{props.initials}</div><div><strong>{props.name}</strong><small>{props.role}</small></div><span className={props.status === 'online' ? 'online-dot' : props.status === 'degraded' ? 'degraded-dot' : 'away-dot'}></span></button>;
+}
+
+function BenchmarkPanel({ benchmark, summary, onRerun }) {
+  const methods = [
+    ['naive', benchmark.methods.naive],
+    ['freshness', benchmark.methods.freshness],
+    ['sentinel', benchmark.methods.sentinel]
+  ];
+  const maxAccuracy = Math.max(...methods.map(function(pair) { return pair[1].accuracy; }), 1);
+  return <div className="benchmark-layout">
+    <section className="benchmark-main">
+      <div className="section-head">
+        <div><div className="eyebrow">VALIDATION SUITE · REPRODUCIBLE</div><h2>Controlled degraded-information benchmark <span className="badge live">MEASURED</span></h2></div>
+        <button className="primary-btn" onClick={onRerun}>RERUN SUITE ↻</button>
+      </div>
+      <div className="benchmark-banner">
+        <div><strong>{benchmark.totalRuns} synthetic decision cases</strong><span>Seed {benchmark.seed} · {benchmark.conditions.length} communication regimes · identical cases per method</span></div>
+        <span className="benchmark-chip">NO LIVE DATA</span>
+      </div>
+      <div className="benchmark-methods">
+        {methods.map(function(pair) {
+          const key = pair[0], m = pair[1];
+          return <div className={'benchmark-method ' + (key === 'sentinel' ? 'featured' : '')} key={key}>
+            <div className="eyebrow">{key === 'sentinel' ? 'PROPOSED ENGINE' : 'BASELINE'}</div>
+            <strong>{m.label}</strong>
+            <div className="benchmark-number">{m.accuracy}%</div>
+            <small>accuracy</small>
+            <div className="benchmark-track"><span style={{width: (m.accuracy / maxAccuracy * 100) + '%'}}></span></div>
+            <div className="benchmark-mini"><span>False confidence <b>{m.falseConfidenceRate}%</b></span><span>Brier <b>{m.brier}</b></span><span>Abstain <b>{m.abstentionRate}%</b></span></div>
+          </div>;
+        })}
+      </div>
+      <div className="benchmark-delta">
+        <div><small>ACCURACY Δ VS NAIVE</small><strong>{summary.accuracyDeltaVsNaive > 0 ? '+' : ''}{summary.accuracyDeltaVsNaive} pts</strong></div>
+        <div><small>FALSE-CONFIDENCE Δ</small><strong>{summary.falseConfidenceDeltaVsNaive > 0 ? '+' : ''}{summary.falseConfidenceDeltaVsNaive} pts</strong></div>
+        <div><small>BRIER Δ VS NAIVE</small><strong>{summary.brierDeltaVsNaive > 0 ? '+' : ''}{summary.brierDeltaVsNaive}</strong></div>
+        <div><small>HIGH-CONFLICT ABSTENTION</small><strong>{summary.appropriateAbstention}%</strong></div>
+      </div>
+      <div className="section-head compact"><div><div className="eyebrow">STRESS MATRIX</div><h2>Performance by communication regime</h2></div><span className="micro-label">Same generator · same seed</span></div>
+      <div className="benchmark-table">
+        <div className="benchmark-row benchmark-head"><span>CONDITION</span><span>NAIVE</span><span>FRESHNESS</span><span>SENTINEL Ω</span></div>
+        {benchmark.conditions.map(function(key) {
+          const row = benchmark.byCondition[key];
+          return <div className="benchmark-row" key={key}>
+            <span><strong>{row.label}</strong><small>{row.sentinel.runs} cases</small></span>
+            <span>{row.naive.accuracy}%<small>FC {row.naive.falseConfidenceRate}%</small></span>
+            <span>{row.freshness.accuracy}%<small>FC {row.freshness.falseConfidenceRate}%</small></span>
+            <span className="benchmark-best">{row.sentinel.accuracy}%<small>FC {row.sentinel.falseConfidenceRate}% · U {row.sentinel.abstentionRate}%</small></span>
+          </div>;
+        })}
+      </div>
+      <div className="benchmark-note"><strong>Methodology.</strong> The suite uses a deterministic synthetic generator with controlled latency, packet loss, source reliability and conflict pressure. It is a validation instrument for the prototype—not evidence of operational performance.</div>
+    </section>
+    <aside className="benchmark-side">
+      <div className="eyebrow">WHAT IS BEING TESTED</div>
+      <h3>Why the comparison is defensible</h3>
+      <div className="benchmark-points">
+        <div><b>01</b><span><strong>Same evidence</strong> Every method sees the same generated reports.</span></div>
+        <div><b>02</b><span><strong>Same truth</strong> Ground truth is known only to the benchmark scorer.</span></div>
+        <div><b>03</b><span><strong>Same conditions</strong> Delay, loss and contradiction are parameterized.</span></div>
+        <div><b>04</b><span><strong>Auditable metrics</strong> Accuracy, false confidence, Brier score and abstention are recorded.</span></div>
+      </div>
+      <div className="panel-divider"></div>
+      <div className="eyebrow">RESEARCH CLAIM</div>
+      <p className="benchmark-callout">“Do not claim superiority by appearance. Measure whether explicit uncertainty improves behavior under degradation.”</p>
+      <div className="panel-divider"></div>
+      <div className="eyebrow">REPRODUCIBILITY</div>
+      <p className="panel-note">The seed is fixed for each run. Results can be regenerated locally from the benchmark engine without external services.</p>
+    </aside>
+  </div>;
 }
 
 function TeamPanel({ members, activeSeat, joinSeat, messages, messageText, setMessageText, sendMessage, degraded }) {
