@@ -438,6 +438,70 @@ function Presence(props) {
   return <button className={'presence-row ' + (props.active ? 'active' : '')} onClick={props.onClick}><div className={'mini-avatar ' + (props.active ? 'me' : '')}>{props.initials}</div><div><strong>{props.name}</strong><small>{props.role}</small></div><span className={props.status === 'online' ? 'online-dot' : props.status === 'degraded' ? 'degraded-dot' : 'away-dot'}></span></button>;
 }
 
+function RerunEmbeddedPanel() {
+  const hostRef = useRef(null);
+  const viewerRef = useRef(null);
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [status, setStatus] = useState('READY · LOAD A .RRD RECORDING');
+
+  const stopViewer = function() {
+    if (viewerRef.current) {
+      try { viewerRef.current.stop(); } catch (_) {}
+      viewerRef.current = null;
+    }
+  };
+
+  const startViewer = async function(source) {
+    if (!hostRef.current || !source) {
+      setStatus('SELECT A .RRD FILE OR ENTER A RECORDING URL');
+      return;
+    }
+    stopViewer();
+    setStatus('LOADING RERUN WEB VIEWER…');
+    try {
+      const module = await import('@rerun-io/web-viewer');
+      const viewer = new module.WebViewer();
+      await viewer.start(source, hostRef.current, {
+        width: '100%',
+        height: '620px',
+        hide_welcome_screen: true,
+        theme: 'dark'
+      });
+      viewerRef.current = viewer;
+      setStatus('LIVE · RERUN 3D VIEWER');
+    } catch (error) {
+      setStatus('RERUN LOAD ERROR · CHECK THE RECORDING URL/FILE');
+      console.error('Rerun WebViewer error', error);
+    }
+  };
+
+  const handleFile = function(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    startViewer(objectUrl);
+  };
+
+  useEffect(function() {
+    return function() { stopViewer(); };
+  }, []);
+
+  return <section className="viz-card rerun-embedded-card">
+    <div className="section-head compact">
+      <div><div className="eyebrow">RERUN WEB VIEWER · 0.38.1</div><h2>Embedded robotics-grade 3D workspace</h2></div>
+      <span className="badge live">{status}</span>
+    </div>
+    <div className="rerun-toolbar">
+      <label className="rerun-file-btn">LOAD .RRD<input type="file" accept=".rrd,application/octet-stream" onChange={handleFile}/></label>
+      <input className="rerun-url" value={sourceUrl} onChange={function(e){setSourceUrl(e.target.value);}} placeholder="https://…recording.rrd or rerun+http://…/proxy"/>
+      <button className="primary-btn" onClick={() => startViewer(sourceUrl.trim())}>CONNECT ↗</button>
+      <button className="ghost-btn" onClick={stopViewer}>STOP</button>
+    </div>
+    <div ref={hostRef} className="rerun-host"></div>
+    <p className="viz-note">Load the <code>sentinel-grid.rrd</code> recording produced by <code>npm run viz:rerun -- --save artifacts/sentinel-grid.rrd</code> to inspect the synthetic scene directly inside Sentinel Grid. The viewer supports 3D data and shared timelines. citeturn927182search0turn491207search0</p>
+  </section>;
+}
+
 function VisualizationPanel({ reports, events, decisions, netHealth, latency, dropout, conflict, fusedRoute, onExportBundle }) {
   const networkRef = useRef(null);
   const chartRef = useRef(null);
@@ -575,6 +639,7 @@ function VisualizationPanel({ reports, events, decisions, netHealth, latency, dr
       <div className="viz-metrics">{metrics.map(function(pair){return <div key={pair[0]}><small>{pair[0]}</small><strong>{pair[1]}</strong></div>;})}</div>
     </div>
     <div className="viz-grid">
+      <RerunEmbeddedPanel />
       <section className="viz-card viz-3d-stack">
         <div className="section-head compact"><div><div className="eyebrow">RERUN.IO · MIT / APACHE-2.0</div><h2>Multimodal 3D replay companion</h2></div><span className="badge live">RERUN</span></div>
         <div className="viz-3d-callout"><div><strong>Rerun</strong><span>Time-aware 3D, trajectories, telemetry and event logs.</span></div><div><strong>Open3D</strong><span>Point-cloud and geometry inspection for synthetic spatial evidence.</span></div><div><strong>Bundle</strong><span>Export once from this screen, then inspect with either viewer.</span></div></div>
