@@ -68,3 +68,32 @@ The prototype does not claim that no comparable defence technology exists. Publi
 **information state → evidence selected → human decision → rationale/confidence → hidden truth → adaptive next exercise**
 
 The system is designed as a synthetic training environment, not an operational command or targeting system.
+
+
+## Research-informed engine
+
+The decision-intelligence kernel uses:
+
+- exponential time decay for information freshness;
+- Bayesian/Beta source-reliability priors;
+- reliability-weighted OWA evidence fusion to avoid single-source dominance under conflict;
+- an explicit abstention / insufficient-evidence state;
+- confidence-vs-evidence calibration telemetry;
+- lightweight contextual exploration/exploitation for adaptive exercise selection;
+- SHA-256 exercise fingerprinting for tamper-evident AAR integrity checks.
+
+See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, design rationale and citations.
+
+## Presentation demonstration
+
+1. Start **ALPHA-07**.
+2. Open **Exercise Director**.
+3. Inject **Delay Feed**, **Conflict Report**, then **Drop Node**.
+4. Return to **Decision Cockpit** and select the reports used as evidence.
+5. Log a decision with rationale and confidence.
+6. Open **Team Room** in a second browser tab and transmit a team message.
+7. Open **AAR & Replay** and move the replay slider.
+8. Show the ground-truth reveal, confidence gap, information-integrity score and audit fingerprint.
+9. In Director, press **GENERATE NEXT EXERCISE** to demonstrate the adaptive training loop.
+
+The system is intentionally synthetic and software-only. It is not connected to weapons, operational networks or real-world targeting systems.
