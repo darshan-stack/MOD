@@ -69,7 +69,7 @@ The prototype does not claim that no comparable defence technology exists. Publi
 
 The system is designed as a synthetic training environment, not an operational command or targeting system.
 
-The trainee skill state is persisted locally so repeated exercise sessions update the same Glicko-2 profile.
+Trainee skill and learned source-reliability history are persisted locally so repeated exercise sessions update both the Glicko-2 profile and the evidence model.
 
 
 ## Research-informed engine
