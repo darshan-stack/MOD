@@ -355,6 +355,7 @@ function App() {
           <button className={activeTab === 'team' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('team')}><span className="icon">⌁</span>Team room<em>{members.filter(function(m){return m.status === 'online';}).length}</em></button>
           <button className={activeTab === 'aar' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('aar')}><span className="icon">≡</span>AAR & replay</button>
           <button className={activeTab === 'benchmark' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('benchmark')}><span className="icon">◫</span>Benchmark lab<em>{benchmark.totalRuns}</em></button>
+           <button className={activeTab === 'viz' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('viz')}><span className="icon">◈</span>Visualization lab<em>OSS</em></button>
           <div className="nav-label instructor-label">TRAINING DIRECTOR</div>
           <button className={activeTab === 'director' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('instructor'); setActiveTab('director'); }}><span className="icon">⚙</span>Exercise director</button>
           <button className="nav-item" onClick={() => exportAAR('html')}><span className="icon">⇩</span>Export AAR</button>
@@ -363,7 +364,7 @@ function App() {
       </aside>
 
       <main className="main">
-        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : activeTab === 'benchmark' ? 'Benchmark laboratory' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
+        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : activeTab === 'benchmark' ? 'Benchmark laboratory' : activeTab === 'viz' ? 'Visualization laboratory' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
 
         {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
 
@@ -399,7 +400,8 @@ function App() {
         )}
 
         {activeTab === 'team' && <TeamPanel members={members} activeSeat={activeSeat} joinSeat={joinSeat} messages={messages} messageText={messageText} setMessageText={setMessageText} sendMessage={sendMessage} degraded={teamChannelDegraded}/>}
-        {activeTab === 'benchmark' && <BenchmarkPanel benchmark={benchmark} summary={benchmarkSummary} onRerun={() => setBenchmarkRun(function(v){ return v + 1; })}/>} 
+        {activeTab === 'benchmark' && <BenchmarkPanel benchmark={benchmark} summary={benchmarkSummary} onRerun={() => setBenchmarkRun(function(v){ return v + 1; })}/>}
+         {activeTab === 'viz' && <VisualizationPanel reports={reports} events={events} decisions={decisions} netHealth={netHealth} latency={latency} dropout={dropout} conflict={conflict} fusedRoute={fusedRoute}/>} 
         {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} setNetHealth={setNetHealth} latency={latency} setLatency={setLatency} dropout={dropout} setDropout={setDropout} conflict={conflict} setConflict={setConflict} freshnessDecay={freshnessDecay} setFreshnessDecay={setFreshnessDecay} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise}/>}
         {activeTab === 'aar' && <AARPanel decisions={decisions} events={events} reports={reports} metrics={metrics} focus={focus} replayAt={replayAt} setReplayAt={setReplayAt} elapsed={elapsed} exportAAR={exportAAR} integrityIndex={integrityIndex} confidenceGap={confidenceGap} fusedRoute={fusedRoute} ledgerFingerprint={ledgerFingerprint}/>}
 
@@ -413,6 +415,163 @@ function Metric({ label, value }) { return <div className="metric"><small>{label
 
 function Presence(props) {
   return <button className={'presence-row ' + (props.active ? 'active' : '')} onClick={props.onClick}><div className={'mini-avatar ' + (props.active ? 'me' : '')}>{props.initials}</div><div><strong>{props.name}</strong><small>{props.role}</small></div><span className={props.status === 'online' ? 'online-dot' : props.status === 'degraded' ? 'degraded-dot' : 'away-dot'}></span></button>;
+}
+
+function VisualizationPanel({ reports, events, decisions, netHealth, latency, dropout, conflict, fusedRoute }) {
+  const networkRef = useRef(null);
+  const chartRef = useRef(null);
+  const timelineRef = useRef(null);
+
+  useEffect(function() {
+    if (!networkRef.current || !window.cytoscape) return undefined;
+    const liveReports = reports.filter(function(r) { return r.state !== 'dropped'; });
+    const nodes = [
+      { data: { id: 'TEAM', label: 'ALPHA CELL', domain: 'TEAM' } }
+    ].concat(liveReports.map(function(r) {
+      return { data: { id: r.id, label: r.source, domain: r.domain, confidence: r.confidence } };
+    }));
+    const edges = liveReports.map(function(r) {
+      return { data: { id: 'e-' + r.id, source: 'TEAM', target: r.id, weight: Math.max(1, r.confidence / 20) } };
+    });
+
+    const cy = window.cytoscape({
+      container: networkRef.current,
+      elements: nodes.concat(edges),
+      layout: { name: 'cose', animate: false, fit: true, padding: 28 },
+      minZoom: 0.65,
+      maxZoom: 2.2,
+      style: [
+        { selector: 'node', style: {
+          'background-color': '#12303a',
+          'border-width': 1,
+          'border-color': '#4e8d92',
+          'label': 'data(label)',
+          'color': '#d9eeee',
+          'font-size': 9,
+          'font-family': 'DM Mono',
+          'text-wrap': 'wrap',
+          'text-max-width': 90,
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'width': 58,
+          'height': 40
+        }},
+        { selector: 'node[id="TEAM"]', style: {
+          'background-color': '#234e52',
+          'border-color': '#86ded7',
+          'width': 78,
+          'height': 48,
+          'font-size': 10
+        }},
+        { selector: 'edge', style: {
+          'line-color': '#31525d',
+          'target-arrow-color': '#4f8087',
+          'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier',
+          'width': 'mapData(weight, 1, 5, 1, 4)',
+          'opacity': 0.78
+        }}
+      ]
+    });
+
+    return function() { cy.destroy(); };
+  }, [reports]);
+
+  useEffect(function() {
+    if (!chartRef.current || !window.echarts) return undefined;
+    const chart = window.echarts.init(chartRef.current);
+    const labels = reports.map(function(r) { return r.source.split(' / ')[0]; });
+    chart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: { trigger: 'axis' },
+      legend: {
+        textStyle: { color: '#829aa4', fontSize: 9, fontFamily: 'DM Mono' },
+        data: ['Confidence', 'Freshness', 'Trust']
+      },
+      grid: { left: 34, right: 16, top: 34, bottom: 54 },
+      xAxis: {
+        type: 'category',
+        data: labels,
+        axisLabel: { color: '#718993', fontSize: 8, rotate: 22 },
+        axisLine: { lineStyle: { color: '#223c48' } }
+      },
+      yAxis: {
+        type: 'value',
+        max: 100,
+        axisLabel: { color: '#718993', fontSize: 8 },
+        splitLine: { lineStyle: { color: '#18303b' } }
+      },
+      series: [
+        { name: 'Confidence', type: 'bar', data: reports.map(function(r) { return r.confidence; }), barMaxWidth: 18 },
+        { name: 'Freshness', type: 'bar', data: reports.map(function(r) { return r.freshness; }), barMaxWidth: 18 },
+        { name: 'Trust', type: 'line', smooth: true, data: reports.map(function(r) { return trustScore(r); }), symbolSize: 6 }
+      ]
+    });
+    const onResize = function() { chart.resize(); };
+    window.addEventListener('resize', onResize);
+    return function() {
+      window.removeEventListener('resize', onResize);
+      chart.dispose();
+    };
+  }, [reports]);
+
+  useEffect(function() {
+    if (!timelineRef.current || !window.vis) return undefined;
+    const base = new Date();
+    const items = new window.vis.DataSet(events.concat(decisions.map(function(d) {
+      return { at: d.at, tag: 'DECISION', text: d.action + ' · ' + d.rationale };
+    })).map(function(e, index) {
+      return {
+        id: index + '-' + e.at + '-' + e.tag,
+        content: '<b>' + e.tag + '</b> ' + String(e.text).replace(/</g, '&lt;'),
+        start: new Date(base.getTime() + Number(e.at || 0) * 1000),
+        group: e.tag
+      };
+    }));
+    const timeline = new window.vis.Timeline(timelineRef.current, items, {
+      stack: true,
+      zoomMin: 15000,
+      zoomMax: 1000 * 60 * 20,
+      orientation: { axis: 'top' },
+      margin: { item: 8, axis: 6 },
+      selectable: true
+    });
+    return function() { timeline.destroy(); };
+  }, [events, decisions]);
+
+  const metrics = [
+    ['NETWORK', netHealth + '%'],
+    ['LATENCY', latency + 's'],
+    ['DROPOUT', dropout + '%'],
+    ['CONFLICT', conflict + '%'],
+    ['FUSED', fusedRoute.label],
+    ['UNCERTAINTY', fusedRoute.uncertainty + '%']
+  ];
+
+  return <div className="viz-layout">
+    <div className="viz-banner">
+      <div><div className="eyebrow">OPEN-SOURCE VISUALIZATION STACK</div><h2>Operational telemetry, relationship graphs and replay timelines</h2><p>All visual layers consume the same synthetic exercise state already used by Sentinel Grid Ω.</p></div>
+      <div className="viz-metrics">{metrics.map(function(pair){return <div key={pair[0]}><small>{pair[0]}</small><strong>{pair[1]}</strong></div>;})}</div>
+    </div>
+    <div className="viz-grid">
+      <section className="viz-card viz-network">
+        <div className="section-head compact"><div><div className="eyebrow">CYTOSCAPE.JS · MIT</div><h2>Communication relationship graph</h2></div><span className="badge live">INTERACTIVE</span></div>
+        <div ref={networkRef} className="cytoscape-canvas"></div>
+        <p className="viz-note">Nodes represent the synthetic team and current information sources; edges show the evidence flow into the decision space.</p>
+      </section>
+      <section className="viz-card viz-chart">
+        <div className="section-head compact"><div><div className="eyebrow">APACHE ECHARTS · APACHE-2.0</div><h2>Evidence integrity profile</h2></div><span className="badge ew">MULTI-SERIES</span></div>
+        <div ref={chartRef} className="echarts-canvas"></div>
+        <p className="viz-note">Confidence, freshness and derived trust are rendered together so degradation effects are immediately visible.</p>
+      </section>
+      <section className="viz-card viz-timeline">
+        <div className="section-head compact"><div><div className="eyebrow">VIS-TIMELINE · APACHE-2.0 / MIT</div><h2>Exercise event reconstruction</h2></div><span className="badge live">ZOOM / PAN</span></div>
+        <div ref={timelineRef} className="vis-timeline-canvas"></div>
+        <p className="viz-note">Use the timeline to inspect information injections and decision events on a common temporal axis.</p>
+      </section>
+    </div>
+    <div className="viz-footer"><strong>Open-source references:</strong> Cytoscape.js provides graph visualization/analysis under MIT; Apache ECharts is Apache-2.0; vis-timeline is dual-licensed Apache-2.0/MIT. citeturn786432search3turn786432search1turn786432search5</div>
+  </div>;
 }
 
 function BenchmarkPanel({ benchmark, summary, onRerun }) {
