@@ -404,6 +404,7 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
   const methods = [
     ['naive', benchmark.methods.naive],
     ['freshness', benchmark.methods.freshness],
+    ['reliability', benchmark.methods.reliability],
     ['sentinel', benchmark.methods.sentinel]
   ];
   const maxAccuracy = Math.max(...methods.map(function(pair) { return pair[1].accuracy; }), 1);
@@ -426,7 +427,7 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
             <div className="benchmark-number">{m.accuracy}%</div>
             <small>accuracy</small>
             <div className="benchmark-track"><span style={{width: (m.accuracy / maxAccuracy * 100) + '%'}}></span></div>
-            <div className="benchmark-mini"><span>False confidence <b>{m.falseConfidenceRate}%</b></span><span>Brier <b>{m.brier}</b></span><span>Abstain <b>{m.abstentionRate}%</b></span></div>
+            <div className="benchmark-mini"><span>Selective accuracy <b>{m.selectiveAccuracy === null ? '—' : m.selectiveAccuracy + '%'}</b></span><span>Coverage <b>{m.coverage}%</b></span><span>False confidence <b>{m.falseConfidenceRate}%</b></span><span>Brier <b>{m.brier}</b></span></div>
           </div>;
         })}
       </div>
@@ -438,18 +439,19 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
       </div>
       <div className="section-head compact"><div><div className="eyebrow">STRESS MATRIX</div><h2>Performance by communication regime</h2></div><span className="micro-label">Same generator · same seed</span></div>
       <div className="benchmark-table">
-        <div className="benchmark-row benchmark-head"><span>CONDITION</span><span>NAIVE</span><span>FRESHNESS</span><span>SENTINEL Ω</span></div>
+        <div className="benchmark-row benchmark-head"><span>CONDITION</span><span>NAIVE</span><span>FRESHNESS</span><span>RELIABILITY</span><span>SENTINEL Ω</span></div>
         {benchmark.conditions.map(function(key) {
           const row = benchmark.byCondition[key];
           return <div className="benchmark-row" key={key}>
             <span><strong>{row.label}</strong><small>{row.sentinel.runs} cases</small></span>
             <span>{row.naive.accuracy}%<small>FC {row.naive.falseConfidenceRate}%</small></span>
             <span>{row.freshness.accuracy}%<small>FC {row.freshness.falseConfidenceRate}%</small></span>
-            <span className="benchmark-best">{row.sentinel.accuracy}%<small>FC {row.sentinel.falseConfidenceRate}% · U {row.sentinel.abstentionRate}%</small></span>
+            <span>{row.reliability.accuracy}%<small>FC {row.reliability.falseConfidenceRate}%</small></span>
+            <span className="benchmark-best">{row.sentinel.accuracy}%<small>FC {row.sentinel.falseConfidenceRate}% · C {row.sentinel.coverage}% · U {row.sentinel.abstentionRate}%</small></span>
           </div>;
         })}
       </div>
-      <div className="benchmark-note"><strong>Methodology.</strong> The suite uses a deterministic synthetic generator with controlled latency, packet loss, source reliability and conflict pressure. It is a validation instrument for the prototype—not evidence of operational performance.</div>
+      <div className="benchmark-note"><strong>Methodology.</strong> The suite uses a deterministic synthetic generator with controlled latency, packet loss, source reliability and conflict pressure. Sentinel Ω uses a pre-exercise source-reliability history; baselines do not. Treat this as an algorithmic ablation study, not evidence of operational performance.</div>
     </section>
     <aside className="benchmark-side">
       <div className="eyebrow">WHAT IS BEING TESTED</div>
