@@ -60,3 +60,27 @@ console.log(JSON.stringify({
   conflicting: {label: conflicting.label, uncertainty: conflicting.uncertainty, abstain: conflicting.abstain},
   glicko: {baseline: baseline.rating, afterWin: win.rating, afterLoss: loss.rating}
 }, null, 2));
+
+
+import { runBenchmark, benchmarkHeadline } from '../src/engine/benchmark.js';
+
+const benchmark = runBenchmark({ runsPerCondition: 50, seed: 20261003 });
+const headline = benchmarkHeadline(benchmark);
+assert.equal(benchmark.totalRuns, 200);
+assert.equal(benchmark.methods.sentinel.label, 'Sentinel Ω · Subjective Logic');
+assert(benchmark.methods.naive.runs === 200);
+assert(benchmark.methods.sentinel.runs === 200);
+assert(benchmark.methods.sentinel.appropriateAbstention >= 0);
+assert(benchmark.methods.sentinel.appropriateAbstention <= 100);
+assert.equal(Object.keys(benchmark.byCondition).length, 4);
+
+console.log('benchmark suite checks: PASS');
+console.log(JSON.stringify({
+  totalRuns: benchmark.totalRuns,
+  headline,
+  overall: {
+    naive: benchmark.methods.naive,
+    freshness: benchmark.methods.freshness,
+    sentinel: benchmark.methods.sentinel
+  }
+}, null, 2));
