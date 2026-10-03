@@ -148,7 +148,8 @@ function emptyAccumulator() {
     coveredRawBrierSum: 0,
     predicted: 0,
     calibrationSamples: [],
-    rawCalibrationSamples: []
+    rawCalibrationSamples: [],
+    rankingSamples: []
   };
 }
 
@@ -173,10 +174,48 @@ function addTo(acc, prediction, truth, highConflict) {
       correct: score.correct
     });
   }
+
+  acc.rankingSamples.push({
+    confidence: Number(prediction.probability ?? prediction.confidence ?? 0) / 100,
+    correct: score.correct,
+    abstain: Boolean(prediction.abstain)
+  });
+
   if (highConflict) {
     acc.highConflictRuns += 1;
     acc.appropriateAbstain += prediction.abstain ? 1 : 0;
   }
+}
+
+function riskCoverage(samples = []) {
+  const ranked = samples.slice().sort((a, b) => b.confidence - a.confidence);
+  if (!ranked.length) return { aurc: null, curve: [] };
+
+  let correct = 0;
+  let area = 0;
+  const curve = ranked.map(function(sample, index) {
+    if (sample.correct) correct += 1;
+    const coverage = (index + 1) / ranked.length;
+    const risk = 1 - correct / (index + 1);
+    area += risk;
+    return {
+      coverage: Number(coverage.toFixed(3)),
+      risk: Number(risk.toFixed(3))
+    };
+  });
+
+  return {
+    aurc: Number((area / ranked.length).toFixed(4)),
+    curve
+  };
+}
+
+function matchedCoverageAccuracy(samples = [], targetCoverage = 1) {
+  const ranked = samples.slice().sort((a, b) => b.confidence - a.confidence);
+  if (!ranked.length) return null;
+  const count = Math.max(1, Math.min(ranked.length, Math.round(ranked.length * clamp(targetCoverage))));
+  const correct = ranked.slice(0, count).filter(x => x.correct).length;
+  return Number((correct / count * 100).toFixed(1));
 }
 
 function finalize(acc) {
@@ -195,7 +234,8 @@ function finalize(acc) {
     coveredBrier: acc.predicted ? Number((acc.coveredBrierSum / acc.predicted).toFixed(3)) : null,
     coveredRawBrier: acc.predicted ? Number((acc.coveredRawBrierSum / acc.predicted).toFixed(3)) : null,
     ece: expectedCalibrationError(acc.calibrationSamples),
-    rawEce: expectedCalibrationError(acc.rawCalibrationSamples)
+    rawEce: expectedCalibrationError(acc.rawCalibrationSamples),
+    aurc: riskCoverage(acc.rankingSamples).aurc
   };
 }
 
@@ -246,18 +286,26 @@ export function runBenchmark({ runsPerCondition = 100, seed = 20261003 } = {}) {
     };
   }
 
+  const finalized = {
+    naive: { label: 'Naive confidence average', ...finalize(methods.naive) },
+    freshness: { label: 'Confidence × freshness', ...finalize(methods.freshness) },
+    reliability: { label: 'Reliability × freshness', ...finalize(methods.reliability) },
+    sentinel: { label: 'Sentinel Ω · Subjective Logic', ...finalize(methods.sentinel) }
+  };
+
+  const matchedCoverage = finalized.sentinel.coverage / 100;
+  Object.keys(finalized).forEach(function(key) {
+    finalized[key].matchedCoverage = Number((matchedCoverage * 100).toFixed(1));
+    finalized[key].matchedSelectiveAccuracy = matchedCoverageAccuracy(methods[key].rankingSamples, matchedCoverage);
+  });
+
   return {
     suite: 'SG-Ω-DEGRADED-DECISION-001',
     seed,
     runsPerCondition,
     totalRuns: runsPerCondition * CONDITIONS.length,
     conditions: CONDITIONS.map(c => c.key),
-    methods: {
-      naive: { label: 'Naive confidence average', ...finalize(methods.naive) },
-      freshness: { label: 'Confidence × freshness', ...finalize(methods.freshness) },
-      reliability: { label: 'Reliability × freshness', ...finalize(methods.reliability) },
-      sentinel: { label: 'Sentinel Ω · Subjective Logic', ...finalize(methods.sentinel) }
-    },
+    methods: finalized,
     byCondition
   };
 }
