@@ -80,7 +80,7 @@ The decision-intelligence kernel uses:
 - Bayesian/Beta source-reliability priors;
 - Subjective Logic-style belief / disbelief / uncertainty fusion for conflicting reports;
 - an explicit abstention / insufficient-evidence state;
-- confidence-vs-evidence calibration telemetry, uncertainty-aware temperature scaling, ECE and Brier scoring;
+- confidence-vs-evidence calibration telemetry, ECE/Brier scoring and an opt-in temperature-scaling experiment;
 - Glicko-2 trainee skill rating with rating deviation and volatility;
 - lightweight contextual exploration/exploitation for adaptive exercise selection;
 - SHA-256 exercise fingerprinting for tamper-evident AAR integrity checks.
