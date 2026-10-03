@@ -284,8 +284,11 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
    * not a label-changing rule. As uncertainty or contradiction rises, the
    * distribution is softened so the UI does not expose unjustified certainty.
    */
-  const calibrationTemperature = 1.15 + 1.15 * uncertainty + 0.55 * conflict;
-  const distribution = temperatureScaleDistribution(rawDistribution, calibrationTemperature);
+  // Keep the production score aligned with the Subjective Logic projected
+  // probability. Temperature scaling remains available as an experiment via
+  // temperatureScaleDistribution(), but is not applied by default.
+  const calibrationTemperature = 1;
+  const distribution = rawDistribution;
   const calibratedBest = distribution[0];
 
   return {
@@ -298,7 +301,7 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
     conflict: Math.round(conflict * 100),
     sufficiency: Math.round(sufficiency * 100),
     abstain: sufficiency < 0.52 || best.projected < 0.50 || independentSources < 2,
-    method: 'SUBJECTIVE_LOGIC_CALIBRATED',
+    method: 'SUBJECTIVE_LOGIC',
     calibrationTemperature: Number(calibrationTemperature.toFixed(2)),
     distribution,
     rawDistribution,
