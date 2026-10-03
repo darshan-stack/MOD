@@ -69,6 +69,8 @@ The prototype does not claim that no comparable defence technology exists. Publi
 
 The system is designed as a synthetic training environment, not an operational command or targeting system.
 
+The trainee skill state is persisted locally so repeated exercise sessions update the same Glicko-2 profile.
+
 
 ## Research-informed engine
 
@@ -76,9 +78,10 @@ The decision-intelligence kernel uses:
 
 - exponential time decay for information freshness;
 - Bayesian/Beta source-reliability priors;
-- reliability-weighted OWA evidence fusion to avoid single-source dominance under conflict;
+- Subjective Logic-style belief / disbelief / uncertainty fusion for conflicting reports;
 - an explicit abstention / insufficient-evidence state;
-- confidence-vs-evidence calibration telemetry;
+- confidence-vs-evidence calibration telemetry plus Brier scoring;
+- Glicko-2 trainee skill rating with rating deviation and volatility;
 - lightweight contextual exploration/exploitation for adaptive exercise selection;
 - SHA-256 exercise fingerprinting for tamper-evident AAR integrity checks.
 
