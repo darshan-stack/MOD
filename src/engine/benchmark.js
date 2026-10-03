@@ -68,16 +68,28 @@ function generateRun(rng, condition, runIndex) {
   return { truth, reports };
 }
 
-function weightedBaseline(reports, mode) {
+const CALIBRATION_HISTORY = {
+  'Alpha 1-1': { supported: 90, contradicted: 10 },
+  'Echo 3': { supported: 82, contradicted: 18 },
+  'Raven-2': { supported: 78, contradicted: 22 },
+  'NetWatch': { supported: 74, contradicted: 26 },
+  'Relay-5': { supported: 68, contradicted: 32 }
+};
+
+function weightedBaseline(reports, mode, history = {}) {
   const buckets = {};
   let total = 0;
   for (const report of reports) {
     if (report.state === 'dropped') continue;
     const confidence = clamp(report.confidence / 100);
     const freshness = clamp(report.freshness / 100);
+    const learned = history[report.source] || { supported: 0, contradicted: 0 };
+    const reliability = (learned.supported + 2) / Math.max(learned.supported + learned.contradicted + 3, 1);
     const weight = mode === 'fresh'
       ? confidence * freshness
-      : confidence;
+      : mode === 'reliability'
+        ? confidence * freshness * reliability
+        : confidence;
     buckets[report.stance] = (buckets[report.stance] || 0) + weight;
     total += weight;
   }
@@ -157,6 +169,7 @@ export function runBenchmark({ runsPerCondition = 100, seed = 20261003 } = {}) {
   const methods = {
     naive: emptyAccumulator(),
     freshness: emptyAccumulator(),
+    reliability: emptyAccumulator(),
     sentinel: emptyAccumulator()
   };
   const byCondition = {};
@@ -165,6 +178,7 @@ export function runBenchmark({ runsPerCondition = 100, seed = 20261003 } = {}) {
     const conditionAcc = {
       naive: emptyAccumulator(),
       freshness: emptyAccumulator(),
+      reliability: emptyAccumulator(),
       sentinel: emptyAccumulator()
     };
 
@@ -174,14 +188,17 @@ export function runBenchmark({ runsPerCondition = 100, seed = 20261003 } = {}) {
 
       const naive = weightedBaseline(data.reports, 'confidence');
       const freshness = weightedBaseline(data.reports, 'fresh');
-      const sentinel = subjectiveLogicFuse(data.reports, condition.networkHealth);
+      const reliability = weightedBaseline(data.reports, 'reliability', CALIBRATION_HISTORY);
+      const sentinel = subjectiveLogicFuse(data.reports, condition.networkHealth, CALIBRATION_HISTORY);
 
       addTo(methods.naive, naive, data.truth, highConflict);
       addTo(methods.freshness, freshness, data.truth, highConflict);
+      addTo(methods.reliability, reliability, data.truth, highConflict);
       addTo(methods.sentinel, sentinel, data.truth, highConflict);
 
       addTo(conditionAcc.naive, naive, data.truth, highConflict);
       addTo(conditionAcc.freshness, freshness, data.truth, highConflict);
+      addTo(conditionAcc.reliability, reliability, data.truth, highConflict);
       addTo(conditionAcc.sentinel, sentinel, data.truth, highConflict);
     }
 
@@ -189,6 +206,7 @@ export function runBenchmark({ runsPerCondition = 100, seed = 20261003 } = {}) {
       label: condition.label,
       naive: finalize(conditionAcc.naive),
       freshness: finalize(conditionAcc.freshness),
+      reliability: finalize(conditionAcc.reliability),
       sentinel: finalize(conditionAcc.sentinel)
     };
   }
@@ -202,6 +220,7 @@ export function runBenchmark({ runsPerCondition = 100, seed = 20261003 } = {}) {
     methods: {
       naive: { label: 'Naive confidence average', ...finalize(methods.naive) },
       freshness: { label: 'Confidence × freshness', ...finalize(methods.freshness) },
+      reliability: { label: 'Reliability × freshness', ...finalize(methods.reliability) },
       sentinel: { label: 'Sentinel Ω · Subjective Logic', ...finalize(methods.sentinel) }
     },
     byCondition
