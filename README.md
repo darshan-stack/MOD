@@ -80,7 +80,7 @@ The decision-intelligence kernel uses:
 - Bayesian/Beta source-reliability priors;
 - Subjective Logic-style belief / disbelief / uncertainty fusion for conflicting reports;
 - an explicit abstention / insufficient-evidence state;
-- confidence-vs-evidence calibration telemetry plus Brier scoring;
+- confidence-vs-evidence calibration telemetry, uncertainty-aware temperature scaling, ECE and Brier scoring;
 - Glicko-2 trainee skill rating with rating deviation and volatility;
 - lightweight contextual exploration/exploitation for adaptive exercise selection;
 - SHA-256 exercise fingerprinting for tamper-evident AAR integrity checks.
@@ -99,6 +99,6 @@ See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, de
 7. Open **AAR & Replay** and move the replay slider.
 8. Show the ground-truth reveal, confidence gap, information-integrity score and audit fingerprint.
 9. In Director, press **GENERATE NEXT EXERCISE** to demonstrate the adaptive training loop.
-10. Open **Benchmark Lab** to reproduce the controlled 200/400-case comparison and inspect accuracy, false-confidence, Brier and abstention metrics.
+10. Open **Benchmark Lab** to reproduce the controlled 400-case comparison and inspect accuracy, selective accuracy, false-confidence, Brier, ECE and abstention metrics. The proposed engine now reports raw→calibrated Brier to make the calibration effect visible.
 
 The system is intentionally synthetic and software-only. It is not connected to weapons, operational networks or real-world targeting systems.
