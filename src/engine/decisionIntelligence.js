@@ -179,6 +179,7 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
       sufficiency: 0,
       abstain: true,
       method: 'SUBJECTIVE_LOGIC',
+      distribution: [],
       contributors: []
     };
   }
@@ -187,49 +188,56 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
   const conflict = conflictIndex(reports, history);
   const independentSources = new Set(reports.map(r => r.source)).size;
 
+  /*
+   * Weighted opinion pooling:
+   * each report contributes explicit support (belief), opposition
+   * (disbelief) and residual epistemic uncertainty. Using a uniform base
+   * rate across the mutually-exclusive labels makes the projected
+   * probabilities sum to one while preserving uncertainty separately.
+   */
+  const weighted = reports.map(report => ({
+    report,
+    weight: evidenceWeight(report, channelHealth, history)
+  }));
+  const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0) || 1;
+  const averageEvidenceStrength = clamp(totalWeight / reports.length);
+
   const candidates = labels.map(label => {
-    const opinions = reports
-      .map(r => ({
-        report: r,
-        opinion: opinionFromReport(r, label, channelHealth, history),
-        weight: evidenceWeight(r, channelHealth, history)
-      }))
-      .filter(x => x.opinion.strength > 0)
-      .sort((x, y) => y.weight - x.weight);
-
-    let fused = { belief: 0, disbelief: 0, uncertainty: 1, baseRate: 0.5 };
-
-    for (const item of opinions) {
-      fused = fuseSubjectiveOpinions(fused, item.opinion);
-    }
+    const belief = weighted.reduce(
+      (sum, item) => sum + (item.report.stance === label ? item.weight : 0),
+      0
+    ) / totalWeight;
+    const disbelief = weighted.reduce(
+      (sum, item) => sum + (item.report.stance !== label ? item.weight : 0),
+      0
+    ) / totalWeight;
+    const uncertainty = clamp(1 - averageEvidenceStrength);
+    const baseRate = 1 / Math.max(labels.length, 1);
+    const projected = clamp(belief + baseRate * uncertainty);
 
     return {
       label,
-      opinion: fused,
-      projected: projectedProbability(fused),
-      contributors: opinions.slice(0, 4).map(x => ({
-        id: x.report.id,
-        weight: Math.round(x.weight * 100),
-        strength: Math.round(x.opinion.strength * 100)
-      }))
+      opinion: { belief, disbelief, uncertainty, baseRate },
+      projected,
+      contributors: weighted
+        .filter(item => item.report.stance === label)
+        .sort((a, b) => b.weight - a.weight)
+        .slice(0, 4)
+        .map(item => ({
+          id: item.report.id,
+          weight: Math.round(item.weight * 100),
+          strength: Math.round(item.weight * 100)
+        }))
     };
-  });
+  }).sort((a, b) => b.projected - a.projected);
 
-  candidates.sort((a, b) => b.projected - a.projected);
   const best = candidates[0];
   const uncertainty = best.opinion.uncertainty;
-
-  /*
-   * Conservative training rule:
-   *   - explicit conflict or high uncertainty => abstain
-   *   - weak independent support => abstain
-   * This intentionally favors "seek corroboration" over false certainty.
-   */
   const sufficiency = clamp(
-    0.48 * best.projected +
+    0.50 * best.projected +
     0.22 * Math.min(independentSources / 2, 1) +
-    0.30 * (1 - conflict) -
-    0.20 * uncertainty
+    0.28 * (1 - conflict) -
+    0.18 * uncertainty
   );
 
   return {
@@ -240,8 +248,12 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
     uncertainty: Math.round(best.opinion.uncertainty * 100),
     conflict: Math.round(conflict * 100),
     sufficiency: Math.round(sufficiency * 100),
-    abstain: uncertainty > 0.35 || best.projected < 0.67 || conflict > 0.36 || independentSources < 2,
+    abstain: uncertainty > 0.40 || best.projected < 0.60 || conflict > 0.55 || independentSources < 2,
     method: 'SUBJECTIVE_LOGIC',
+    distribution: candidates.map(candidate => ({
+      label: candidate.label,
+      probability: Number(candidate.projected.toFixed(6))
+    })),
     contributors: best.contributors
   };
 }
