@@ -5,7 +5,9 @@ import {
   opinionFromReport,
   fuseSubjectiveOpinions,
   subjectiveLogicFuse,
-  brierScore
+  brierScore,
+  temperatureScaleDistribution,
+  expectedCalibrationError
 } from '../src/engine/decisionIntelligence.js';
 
 const report = (stance, confidence=90, freshness=95, source='A') => ({
@@ -29,6 +31,8 @@ const agreeable = subjectiveLogicFuse([
 assert.equal(agreeable.label, 'CLEAR');
 assert(agreeable.belief > 50);
 assert(agreeable.uncertainty < 35);
+assert(Math.abs(agreeable.distribution.reduce((sum, x) => sum + x.probability, 0) - 1) < 0.00001);
+assert(agreeable.confidence <= agreeable.rawConfidence);
 
 const conflicting = subjectiveLogicFuse([
   report('CLEAR', 90, 98, 'A'),
@@ -54,6 +58,17 @@ assert(win.rd < baseline.rd);
 // Proper score is zero for a perfectly calibrated outcome.
 assert.equal(brierScore(1, true), 0);
 assert.equal(brierScore(0, false), 0);
+const scaled = temperatureScaleDistribution([
+  {label:'CLEAR', probability:0.8},
+  {label:'BLOCKED', probability:0.1},
+  {label:'UNRELIABLE', probability:0.1}
+], 2);
+assert(Math.abs(scaled.reduce((sum, x) => sum + x.probability, 0) - 1) < 0.00001);
+assert(scaled[0].probability < 0.8);
+assert(expectedCalibrationError([
+  {probability:0.9, correct:true},
+  {probability:0.1, correct:false}
+]) > 0);
 
 console.log('decision-intelligence checks: PASS');
 console.log(JSON.stringify({
