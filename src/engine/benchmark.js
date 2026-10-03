@@ -165,11 +165,11 @@ function addTo(acc, prediction, truth, highConflict) {
     acc.coveredBrierSum += score.brier;
     acc.coveredRawBrierSum += score.rawBrier;
     acc.calibrationSamples.push({
-      probability: prediction.confidence / 100,
+      probability: (prediction.probability ?? prediction.confidence) / 100,
       correct: score.correct
     });
     acc.rawCalibrationSamples.push({
-      probability: (prediction.rawConfidence ?? prediction.confidence) / 100,
+      probability: (prediction.rawProbability ?? prediction.probability ?? prediction.confidence) / 100,
       correct: score.correct
     });
   }
