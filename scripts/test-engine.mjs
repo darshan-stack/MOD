@@ -7,7 +7,9 @@ import {
   subjectiveLogicFuse,
   brierScore,
   temperatureScaleDistribution,
-  expectedCalibrationError
+  expectedCalibrationError,
+  updateSourceHistory,
+  sourceReliability
 } from '../src/engine/decisionIntelligence.js';
 
 const report = (stance, confidence=90, freshness=95, source='A') => ({
@@ -58,6 +60,12 @@ assert(win.rd < baseline.rd);
 // Proper score is zero for a perfectly calibrated outcome.
 assert.equal(brierScore(1, true), 0);
 assert.equal(brierScore(0, false), 0);
+
+const history1 = updateSourceHistory({}, report('CLEAR', 90, 95, 'A'), true);
+const history2 = updateSourceHistory(history1, report('BLOCKED', 90, 95, 'A'), false);
+assert.equal(history2.A.supported, 1);
+assert.equal(history2.A.contradicted, 1);
+assert(sourceReliability(report('CLEAR', 90, 95, 'A'), history2) > 0);
 const scaled = temperatureScaleDistribution([
   {label:'CLEAR', probability:0.8},
   {label:'BLOCKED', probability:0.1},
