@@ -293,8 +293,12 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
 
   return {
     label: best.label,
-    confidence: Math.round(calibratedBest.probability * 100),
-    rawConfidence: Math.round(best.projected * 100),
+    // Human-facing confidence is belief mass; projected probability is kept
+    // separately for proper probabilistic scoring and calibration diagnostics.
+    confidence: Math.round(best.opinion.belief * 100),
+    rawConfidence: Math.round(best.opinion.belief * 100),
+    probability: Math.round(calibratedBest.probability * 100),
+    rawProbability: Math.round(best.projected * 100),
     belief: Math.round(best.opinion.belief * 100),
     disbelief: Math.round(best.opinion.disbelief * 100),
     uncertainty: Math.round(best.opinion.uncertainty * 100),
