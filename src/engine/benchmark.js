@@ -144,6 +144,8 @@ function emptyAccumulator() {
     appropriateAbstain: 0,
     brierSum: 0,
     rawBrierSum: 0,
+    coveredBrierSum: 0,
+    coveredRawBrierSum: 0,
     predicted: 0,
     calibrationSamples: [],
     rawCalibrationSamples: []
@@ -160,6 +162,8 @@ function addTo(acc, prediction, truth, highConflict) {
   acc.brierSum += score.brier;
   acc.rawBrierSum += score.rawBrier;
   if (!prediction.abstain) {
+    acc.coveredBrierSum += score.brier;
+    acc.coveredRawBrierSum += score.rawBrier;
     acc.calibrationSamples.push({
       probability: prediction.confidence / 100,
       correct: score.correct
@@ -188,6 +192,8 @@ function finalize(acc) {
       : null,
     brier: Number((acc.brierSum / Math.max(acc.runs, 1)).toFixed(3)),
     rawBrier: Number((acc.rawBrierSum / Math.max(acc.runs, 1)).toFixed(3)),
+    coveredBrier: acc.predicted ? Number((acc.coveredBrierSum / acc.predicted).toFixed(3)) : null,
+    coveredRawBrier: acc.predicted ? Number((acc.coveredRawBrierSum / acc.predicted).toFixed(3)) : null,
     ece: expectedCalibrationError(acc.calibrationSamples),
     rawEce: expectedCalibrationError(acc.rawCalibrationSamples)
   };
@@ -266,6 +272,7 @@ export function benchmarkHeadline(result) {
     falseConfidenceDeltaVsReliability: Number((s.falseConfidenceRate - r.falseConfidenceRate).toFixed(1)),
     brierDeltaVsNaive: Number((s.brier - n.brier).toFixed(3)),
     calibrationGain: Number((s.rawBrier - s.brier).toFixed(3)),
+    coveredBrierDeltaVsReliability: Number((s.coveredBrier - r.coveredBrier).toFixed(3)),
     ece: s.ece,
     rawEce: s.rawEce,
     eceDeltaVsNaive: Number(((s.ece ?? 0) - (n.ece ?? 0)).toFixed(4)),
