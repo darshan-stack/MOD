@@ -36,15 +36,19 @@ Current prototype combines this prior with freshness, report confidence and corr
 Reference:
 https://www.sciencedirect.com/org/science/article/pii/S1546221825004321
 
-### 3. Conflict-tolerant evidence fusion
+### 3. Conflict-tolerant evidence fusion — Subjective Logic
 
-The prototype uses reliability-weighted OWA evidence fusion rather than blindly averaging reports. The purpose is to reduce single-source dominance when evidence conflicts.
+The prototype now represents each binary claim as a Subjective Logic opinion:
 
-Recent evidence-fusion literature continues to document the difficulty of highly conflicting evidence for classical Dempster-Shafer combination rules, and recent work explores reliability-aware and conflict-aware weighting.
+**ω = (belief, disbelief, uncertainty, base rate)**
 
-References:
-https://www.sciencedirect.com/science/article/pii/S0020025526001040
-https://www.sciencedirect.com/science/article/pii/S0952197625030246
+Report reliability, freshness, confidence, corroboration and channel health determine how much evidence mass leaves the uncertainty bucket. Reports are combined with a conservative weighted opinion-pooling rule that preserves an explicit uncertainty mass; a separate pairwise consensus operator is retained in the kernel for validation experiments. The projected probability is **belief + base rate × uncertainty**, while the uncertainty component remains visible to the trainee.
+
+This is intentionally different from collapsing all reports into a single confidence number. Under contradiction, Sentinel Grid can surface a high-uncertainty state and abstain.
+
+Reference:
+A. Jøsang, *Subjective Logic: A Formalism for Reasoning Under Uncertainty*, Springer, 2016.
+https://folk.uio.no/josang/sl/
 
 ### 4. Abstention / insufficient-evidence state
 
@@ -81,7 +85,29 @@ References:
 https://doi.org/10.1177/1555343412444606
 https://doi.org/10.1177/1555343412449626
 
-### 7. Adaptive exercise selection
+### 7. Trainee skill estimation — Glicko-2
+
+Each trainee profile has a rating, rating deviation (RD) and volatility (σ). A scored exercise decision is treated as an item with a difficulty-derived opponent rating on the trainer's internal scale. Correct/incorrect decision outcomes update the profile, while RD communicates how uncertain the current skill estimate is.
+
+The implementation follows the published Glicko-2 equations and iterative volatility update. The current prototype performs an online update after each scored decision for immediate UI feedback; a production evaluator can batch decisions into exercise-level rating periods.
+
+Reference:
+Mark E. Glickman, *The Glicko-2 Rating System*.
+https://www.glicko.net/glicko/glicko2.html
+
+### 8. Confidence calibration — Brier score
+
+Each scored decision stores a proper squared-probability loss:
+
+Brier = (p − y)^2
+
+where p is trainee confidence in [0,1] and y is the binary training outcome. Lower is better. The AAR reports mean Brier score and decision accuracy across scored decisions.
+
+An uncertainty-aware **temperature scaling** function is included for controlled calibration experiments. The current decision path does not apply it by default; the benchmark therefore keeps the Subjective Logic probability vector unchanged unless a calibration variant is shown to improve evaluation results.
+
+The benchmark reports **expected calibration error (ECE)** on covered decisions, plus overall Brier and covered-only Brier. This separates probability quality for decisions that were acted on from the separate effect of abstention.
+
+### 9. Adaptive exercise selection
 
 After a run, the system extracts observed focus areas such as stale-data handling, contradiction handling, confidence calibration and decision tempo.
 
@@ -89,6 +115,22 @@ The next scenario is selected using a lightweight contextual exploration/exploit
 
 Reference:
 https://pmc.ncbi.nlm.nih.gov/articles/PMC13030155/
+
+
+### 10. Causal decision explainability and counterfactuals
+
+The prototype now computes an evidence-level causal trace using only the information visible to the trainee at decision time.
+
+For each selected route report, Sentinel recomputes the fused state after removing that report. The resulting change in fused probability, sufficiency, label and abstention state is treated as the report's **decision leverage**. The system also evaluates unselected route reports as one-step additions to identify available evidence that could materially change the current claim.
+
+This produces two distinct questions for AAR:
+
+1. **Why did the model lean here?** — which selected report had the largest marginal effect?
+2. **What could change this decision?** — which available report would alter the claim or abstention state if incorporated?
+
+The explainability trace is snapshotted into each decision record so later AAR/replay does not depend on the current evidence state. Hidden ground truth is deliberately excluded from the computation, preventing the explanation layer from leaking the answer during play.
+
+This is a local perturbation / counterfactual analysis rather than a claim of formal causal identification. Its role is auditability: expose sensitivity and evidence leverage so a trainee or instructor can inspect fragile decisions instead of treating the fused output as an opaque recommendation.
 
 ## Why AAR is not just a report generator
 
@@ -118,6 +160,10 @@ https://arl.devcom.army.mil/arlreport/arl-tr-10070/
 https://ssi.armywarcollege.edu/SSI-Media/Recent-Publications/Article/4564888/fighting-with-data-design-implications-for-ai-enabled-mission-command-systems/
 https://arl.devcom.army.mil/arlreport/arl-tr-10403/
 
+## Implementation notes
+
+The UI now exposes the Subjective Logic state directly as belief, disbelief, uncertainty, conflict and sufficiency. The AAR exposes Glicko-2 skill, RD, decision accuracy and Brier score. Skill persistence is browser-local via localStorage in the current software-only prototype.
+
 ## Auditability
 
 The AAR exports an SHA-256 fingerprint over the exercise evidence, decisions, events and team messages.
@@ -127,3 +173,81 @@ This is a tamper-evident integrity check for the exported training record. It is
 ## Safety / scope
 
 This is a synthetic training environment. It does not contain real operational data, real-world targeting logic or interfaces for controlling physical military systems.
+
+
+### 11. Procedural Scenario DSL and reproducibility
+
+The scenario layer is now represented as a versioned domain-specific configuration describing synthetic phases, objectives, source families, information topics and minimum evidence constraints.
+
+The generator samples only synthetic values and is deterministic for a supplied seed and variant. Before a generated exercise enters the training loop, a validator checks structural constraints such as minimum report count, minimum route evidence and minimum independent route sources.
+
+This changes the experimental unit from a small set of hand-authored demonstrations to a reproducible family of scenario instances. The fixed ALPHA-07, CIPHER-11 and NORTHSTAR-03 cases remain as reference fixtures; procedural variants can be regenerated exactly from their seed for A/B testing, benchmark creation and lab notebooks.
+
+The procedural layer is deliberately separated from the decision-intelligence kernel. Scenario generation creates information conditions; the decision model remains responsible for fusion, uncertainty and abstention. This separation makes it possible to test the same decision algorithm across many independently generated information environments.
+
+
+
+### 12. Synthetic curriculum experiment lab
+
+The experiment layer evaluates repeated exposure to procedurally generated exercises using two curriculum policies: a fixed difficulty schedule and an adaptive difficulty schedule. Each virtual trainee is initialized with the same Glicko-2 prior, and the experiment records round-level accuracy, rating trajectory, confidence calibration and performance by generated difficulty.
+
+The current default configuration is 32 virtual trainees × 16 rounds × 2 curricula = 1,024 synthetic decision trials. This is deliberately a simulation of the training system, not a human-subject experiment. Its role is to expose algorithmic behavior, identify unstable regions and generate hypotheses for later empirical validation.
+
+Interactive plots are rendered with Plotly.js, an open-source MIT-licensed visualization library; the rest of the project also uses Apache ECharts, Cytoscape.js, vis-timeline, Rerun and Open3D for complementary dashboard, network, replay and 3D views.
+
+
+
+### 13. Statistical inference for the synthetic curriculum lab
+
+The curriculum experiment now includes an inference layer designed around the repeated-measures structure of the simulator. Each virtual trainee/session is treated as the resampling unit rather than treating all 16 rounds as independent observations. This preserves within-trainee correlation in the bootstrap procedure and avoids presenting the 1,024 trial-level rows as 1,024 independent subjects.
+
+The lab reports:
+
+- session-level percentile bootstrap 95% confidence intervals for overall accuracy, final-period accuracy, Brier improvement, mean confidence and final Glicko-2 rating;
+- deterministic paired sign-randomization p-values using the same session-level differences;
+- Cohen's h for accuracy proportions and paired Cohen's dz for continuous paired outcomes;
+- round-level bootstrap confidence bands for the learning curve;
+- trial-level CSV plus full JSON export containing seeds and statistical configuration.
+
+The inferential layer is intentionally descriptive of the simulator. It does not convert synthetic virtual-trainee trajectories into human-subject evidence. A real study would need an independently specified protocol, participant-level assignment, appropriate power analysis, preregistration where applicable and statistical treatment of missingness, clustering and repeated measures.
+
+The publication table shown in the UI is therefore best interpreted as a reproducible simulator sensitivity report: it answers "how stable is this synthetic result under resampling?" rather than "has this training method been proven effective in people?"
+
+
+### 14. Component ablation and mechanism sensitivity
+
+The experiment lab now includes a deterministic component-ablation study over a shared procedural scenario stream. The compared configurations are:
+
+- **Full Sentinel Ω** — production fusion, uncertainty, abstention and learned source-history feedback.
+- **Freshness fixed @100** — report-age variation is removed before production fusion. Because the production reliability formula also contains freshness, this is explicitly a *freshness sensitivity* test rather than a perfectly isolated causal intervention.
+- **No learned reliability** — source-history updates are disabled while the source prior remains.
+- **No abstention** — the production fusion output is forced to commit, allowing overconfidence exposure to be measured.
+- **Confidence-only** — a simple confidence aggregation baseline without the production freshness/reliability/uncertainty logic.
+
+Every configuration sees the same generated scenario stream and is scored only after the decision is produced. The UI reports accuracy, false-confidence rate, abstention rate, coverage and Brier score, together with deltas from the full system.
+
+This provides a more defensible research narrative than reporting only the final system score: it shows which mechanisms are sensitive in the synthetic environment and where removing safeguards changes behavior. It does not establish a causal effect in human trainees, and the freshness intervention is intentionally documented as coupled to the existing reliability formulation.
+
+
+### 15. Degradation response surface and phase boundary
+
+The Degradation Response Surface Lab performs a deterministic grid sweep over two stress variables: network health and contradiction pressure. Each grid cell reuses the same seeded base-case stream, then transforms report freshness, dropout state and contradiction pressure before calling the production fusion function. A confidence-only comparator is evaluated on the same stressed evidence.
+
+The exported surfaces track winning projected probability, epistemic uncertainty, sufficiency, abstention rate, false-confidence rate and the difference in false-confidence rate versus the confidence-only comparator. A categorical phase layer labels production output as **COMMIT**, **UNCERTAIN**, or **ABSTAIN** for visualization. These labels are diagnostic displays of the simulator state, not operational decision rules.
+
+The purpose is to expose whether uncertainty rises continuously under degradation and whether abstention appears before confidence collapses into unsafe over-commitment. Because the cases and truth labels are synthetic, the surface is a mechanism-sensitivity artifact rather than evidence about human performance or field effectiveness.
+
+
+### 16. Consolidated research evidence dashboard
+
+The Experiment Lab presents a single evidence dashboard over five complementary validation layers:
+
+1. **Benchmark:** controlled comparison of confidence, freshness/reliability and Sentinel Ω fusion under multiple degraded-information conditions.
+2. **Red-team resilience:** synthetic attack families used to probe stale, contradictory, duplicated and missing evidence behavior.
+3. **Curriculum experiment:** repeated virtual-trainee sessions comparing fixed and adaptive exercise policies with session-level confidence intervals and paired randomization tests.
+4. **Component ablation:** shared-case sensitivity analysis showing how mechanism removal changes accuracy, false confidence, abstention and Brier score.
+5. **Degradation response surface:** controlled network-health × contradiction-pressure sweep exposing probability, uncertainty and abstention phase transitions.
+
+The dashboard's purpose is synthesis and auditability: a reviewer can see the algorithmic comparison, failure-mode stress tests, mechanism sensitivity and degradation boundary without treating them as interchangeable claims. Snapshot JSON/CSV exports preserve the current values for a reproducible lab record.
+
+The strongest defensible claim remains limited to the synthetic environment: the prototype demonstrates a reproducible decision-intelligence pipeline and a structured way to falsify, inspect and visualize its behavior under degraded information. Human-learning or operational-effectiveness conclusions require external empirical evaluation.

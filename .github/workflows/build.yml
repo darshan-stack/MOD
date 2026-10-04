@@ -10,10 +10,84 @@ jobs:
   web-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: viz/requirements.txt
+
       - run: npm ci
-      - run: npm run build
+      - run: npm run verify
+      - name: Install Open3D headless runtime libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1
+      - run: python -m pip install --disable-pip-version-check -r viz/requirements.txt
+      - run: npm run viz:check
+
+      - name: Smoke-test Rerun recording export
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          bundle = {
+              "schema": "sentinel-grid-viz/v1",
+              "exercise": {"key": "CI", "name": "CI smoke test"},
+              "network": {
+                  "netHealth": 80,
+                  "latency": 20,
+                  "dropout": 5,
+                  "conflict": 10,
+                  "freshnessDecay": 10
+              },
+              "fusedRoute": {
+                  "label": "CLEAR",
+                  "belief": 65,
+                  "disbelief": 10,
+                  "uncertainty": 25,
+                  "conflict": 10,
+                  "sufficiency": 75
+              },
+              "reports": [
+                  {
+                      "id": "CI-R1",
+                      "source": "Alpha 1-1",
+                      "domain": "LAND",
+                      "stance": "CLEAR",
+                      "confidence": 88,
+                      "freshness": 92,
+                      "state": "live",
+                      "corroborated": 2
+                  },
+                  {
+                      "id": "CI-R2",
+                      "source": "Echo 3",
+                      "domain": "EW",
+                      "stance": "BLOCKED",
+                      "confidence": 52,
+                      "freshness": 74,
+                      "state": "conflict",
+                      "corroborated": 1
+                  }
+              ],
+              "events": [
+                  {"at": 0, "tag": "SYSTEM", "text": "CI smoke test"},
+                  {"at": 4, "tag": "INJECT", "text": "Synthetic conflict"}
+              ],
+              "decisions": [
+                  {"at": 5, "action": "VERIFY", "confidence": 64, "uncertainty": 34}
+              ]
+          }
+          Path("/tmp/sentinel-grid-viz.json").write_text(
+              json.dumps(bundle), encoding="utf-8"
+          )
+          PY
+          python viz/rerun_sentinel.py /tmp/sentinel-grid-viz.json --save /tmp/sentinel-grid.rrd
+          test -s /tmp/sentinel-grid.rrd
+
