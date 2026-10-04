@@ -7,8 +7,10 @@ Sentinel Grid Ω remains a browser-first training cockpit. This directory adds t
 
 ## Setup
 
+Rerun 0.38.1 supports Python 3.10+, but Python 3.11 is the recommended clean environment for this companion stack.
+
 ~~~bash
-python3 -m venv .viz-venv
+python3.11 -m venv .viz-venv
 source .viz-venv/bin/activate
 pip install -r viz/requirements.txt
 ~~~
@@ -34,13 +36,15 @@ npm run viz:open3d
 For a browser-hosted Rerun viewer:
 
 ~~~bash
-python3 viz/rerun_sentinel.py artifacts/sentinel-grid-viz.json --web-viewer
+python viz/rerun_sentinel.py artifacts/sentinel-grid-viz.json --web-viewer
 ~~~
+
+The web mode starts a local Rerun gRPC server and HTTP web viewer; keep the terminal process running while the viewer is open.
 
 To save an Rerun recording:
 
 ~~~bash
-python3 viz/rerun_sentinel.py artifacts/sentinel-grid-viz.json --save artifacts/sentinel-grid.rrd
+python viz/rerun_sentinel.py artifacts/sentinel-grid-viz.json --save artifacts/sentinel-grid.rrd
 ~~~
 
 Rerun can serve its viewer over HTTP and supports browser viewing. ([Rerun CLI](https://github.com/rerun-io/rerun/blob/main/docs/content/reference/cli.md))
