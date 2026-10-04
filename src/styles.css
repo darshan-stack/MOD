@@ -564,3 +564,5 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
   .explain-row{grid-template-columns:1fr 50px}
   .explain-row>span{grid-column:1/-1;text-align:left}
 }
+
+.director-generated-meta{display:block;font:8px 'DM Mono';color:#5f7b87;margin-top:5px;letter-spacing:.3px}
