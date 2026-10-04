@@ -227,3 +227,12 @@ The experiment lab now includes a deterministic component-ablation study over a 
 Every configuration sees the same generated scenario stream and is scored only after the decision is produced. The UI reports accuracy, false-confidence rate, abstention rate, coverage and Brier score, together with deltas from the full system.
 
 This provides a more defensible research narrative than reporting only the final system score: it shows which mechanisms are sensitive in the synthetic environment and where removing safeguards changes behavior. It does not establish a causal effect in human trainees, and the freshness intervention is intentionally documented as coupled to the existing reliability formulation.
+
+
+### 15. Degradation response surface and phase boundary
+
+The Degradation Response Surface Lab performs a deterministic grid sweep over two stress variables: network health and contradiction pressure. Each grid cell reuses the same seeded base-case stream, then transforms report freshness, dropout state and contradiction pressure before calling the production fusion function. A confidence-only comparator is evaluated on the same stressed evidence.
+
+The exported surfaces track winning projected probability, epistemic uncertainty, sufficiency, abstention rate, false-confidence rate and the difference in false-confidence rate versus the confidence-only comparator. A categorical phase layer labels production output as **COMMIT**, **UNCERTAIN**, or **ABSTAIN** for visualization. These labels are diagnostic displays of the simulator state, not operational decision rules.
+
+The purpose is to expose whether uncertainty rises continuously under degradation and whether abstention appears before confidence collapses into unsafe over-commitment. Because the cases and truth labels are synthetic, the surface is a mechanism-sensitivity artifact rather than evidence about human performance or field effectiveness.
