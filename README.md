@@ -97,3 +97,30 @@ See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, de
 9. In Director, press **GENERATE NEXT EXERCISE** to demonstrate the adaptive training loop.
 
 The system is intentionally synthetic and software-only. It is not connected to weapons, operational networks or real-world targeting systems.
+
+## Real-time simulation mode
+
+The trainer now includes an instructor-authoritative real-time exercise clock and a deterministic degradation orchestrator. The sequence is visible before and during the exercise so a judge can immediately see how the PS is being fulfilled.
+
+Example **ALPHA-07** sequence:
+
+| Simulation time | Injected event | Training effect |
+| --- | --- | --- |
+| T+00:12 | AIR ISR latency | delayed feed + faster freshness decay |
+| T+00:28 | Route ECHO conflict | contradictory LAND/EW reports |
+| T+00:48 | NETWATCH node loss | CYBER source dropout |
+| T+01:08 | Team network split | cross-cell coordination degradation |
+| T+01:28 | ISR freshness collapse | stale evidence at a decision point |
+
+The director can run the sequence at **1× / 2× / 4× / 8×** speed or disable automation and inject individual effects manually. Instructor controls, clock ticks and simulation injections are synchronized across browser tabs using the existing browser room.
+
+### Recommended 2-tab demonstration
+
+1. Open the Vite URL in **Tab A** and open **Exercise Director**.
+2. Keep **AUTO SIM ON** and choose **4×** for a fast demonstration.
+3. Open the same Vite URL in **Tab B** as the trainee seat.
+4. Watch the common clock advance in real time; at each scheduled point the information environment changes.
+5. On the trainee seat, select evidence, record a time-critical decision, send a team message, then open **AAR & Replay**.
+6. Show the replay, hidden-ground-truth reveal, confidence/evidence gap, team metrics, event timeline and exported AAR.
+
+This remains a synthetic web training environment: no operational network, targeting interface or sensitive defence data is used.
