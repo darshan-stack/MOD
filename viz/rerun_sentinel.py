@@ -57,9 +57,12 @@ def main() -> None:
 
     rr.init("sentinel_grid_omega", spawn=not args.web_viewer and not args.save)
     if args.save:
-        rr.save(args.save)
+        output_path = Path(args.save)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        rr.save(str(output_path))
     if args.web_viewer:
-        rr.serve_web()
+        server_uri = rr.serve_grpc()
+        rr.serve_web_viewer(connect_to=server_uri, open_browser=True)
 
     rr.log("/", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)
 
@@ -73,7 +76,6 @@ def main() -> None:
 
     reports = bundle.get("reports", [])
     positions = []
-    labels = []
     colors = []
     radii = []
 
