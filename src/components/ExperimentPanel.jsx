@@ -83,7 +83,62 @@ function AblationPanel({ study, onRerun }) {
       })}
     </div>
 
-    <div className="ablation-note">
+    <div className="ablation-viz-grid">
+      <div className="experiment-chart-card">
+        <div className="experiment-chart-head"><div><div className="eyebrow">ABLATION PANEL A</div><h3>Accuracy sensitivity</h3></div><span>Δ vs full</span></div>
+        <PlotlyFigure
+          data={[{
+            x: variants.filter(row => row.key !== 'FULL').map(row => row.label),
+            y: variants.filter(row => row.key !== 'FULL').map(row => row.accuracyDeltaVsFull),
+            type: 'bar',
+            text: variants.filter(row => row.key !== 'FULL').map(row => (row.accuracyDeltaVsFull >= 0 ? '+' : '') + row.accuracyDeltaVsFull + ' pts'),
+            textposition: 'outside',
+            hovertemplate: '%{x}<br>Accuracy delta %{y:.1f} pts<extra></extra>'
+          }]}
+          layout={{
+            margin: { l: 48, r: 18, t: 35, b: 95 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(8,19,27,.55)',
+            font: { family: 'Manrope', color: '#91a8b3', size: 9 },
+            xaxis: { tickangle: -22, tickfont: { family: 'DM Mono', size: 8 }, gridcolor: '#19323e' },
+            yaxis: { title: 'Δ accuracy (pts)', zeroline: true, zerolinecolor: '#5c6f77', gridcolor: '#19323e' }
+          }}
+        />
+      </div>
+      <div className="experiment-chart-card">
+        <div className="experiment-chart-head"><div><div className="eyebrow">ABLATION PANEL B</div><h3>Safety / calibration trade-off</h3></div><span>Lower is better for FC + Brier</span></div>
+        <PlotlyFigure
+          data={[
+            {
+              x: variants.map(row => row.label),
+              y: variants.map(row => row.falseConfidenceRate),
+              name: 'False confidence',
+              type: 'bar',
+              hovertemplate: '%{x}<br>False confidence %{y:.1f}%<extra></extra>'
+            },
+            {
+              x: variants.map(row => row.label),
+              y: variants.map(row => row.brier * 100),
+              name: 'Brier ×100',
+              type: 'bar',
+              hovertemplate: '%{x}<br>Brier ×100 %{y:.2f}<extra></extra>'
+            }
+          ]}
+          layout={{
+            barmode: 'group',
+            margin: { l: 48, r: 18, t: 35, b: 95 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(8,19,27,.55)',
+            font: { family: 'Manrope', color: '#91a8b3', size: 9 },
+            xaxis: { tickangle: -22, tickfont: { family: 'DM Mono', size: 8 }, gridcolor: '#19323e' },
+            yaxis: { title: 'Metric value', gridcolor: '#19323e' },
+            legend: { orientation: 'h', y: 1.12, font: { family: 'DM Mono', size: 8 } }
+          }}
+        />
+      </div>
+    </div>
+
+        <div className="ablation-note">
       <strong>How to read this.</strong> Every variant receives the same procedurally generated scenario stream. The FULL row is the production decision path. The other rows remove or constrain one mechanism, so a large delta is evidence that the simulator is sensitive to that mechanism. This is an ablation/sensitivity study, not a human-subject causal claim.
     </div>
   </div>;
