@@ -36,7 +36,6 @@ const fmtClock = function(seconds) {
   var ss = String(s % 60).padStart(2, '0');
   return hh + ':' + mm + ':' + ss;
 };
-const stamp = function() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); };
 let idCounter = 0;
 const makeId = function(prefix) {
   if (globalThis.crypto?.randomUUID) return prefix + '-' + globalThis.crypto.randomUUID();
@@ -266,7 +265,7 @@ function App() {
     setReplayAt(0);
     setRunning(true);
     setExerciseHistory(function(current) { return { ...current, [key]: Number(current[key] || 0) + 1 }; });
-    setEvents([{ at: 0, tag: 'SYSTEM', text: 'Loaded ' + s.name + '. Ground truth remains hidden until AAR.' }]);
+    setEvents([{ at: 0, tag: 'SYSTEM', text: 'Loaded ' + s.name + '. Ground truth is UI-hidden until AAR.' }]);
     if (!remote) broadcast({ type: 'SCENARIO', key: key });
   };
 
@@ -371,7 +370,7 @@ function App() {
     var payload = {
       schema: 'sentinel-grid-viz/v1',
       exportedAt: new Date().toISOString(),
-      exercise: { key: scenarioKey, name: scenario.name },
+      exercise: { key: scenarioKey, name: scenario.name, difficulty: scenario.difficulty },
       network: { netHealth: netHealth, latency: latency, dropout: dropout, conflict: conflict, freshnessDecay: freshnessDecay },
       fusedRoute: fusedRoute,
       reports: reports,
@@ -390,7 +389,7 @@ function App() {
       exportedAt: new Date().toISOString(),
       durationSeconds: elapsed,
       network: { netHealth: netHealth, latency: latency, dropout: dropout, conflict: conflict, freshnessDecay: freshnessDecay },
-      trainingMetrics: { ...metrics, integrityIndex: integrityIndex, confidenceGap: confidenceGap, fusedRoute: fusedRoute, sourceHistory: sourceHistory },
+      trainingMetrics: { ...metrics, integrityIndex: integrityIndex, confidenceGap: confidenceGap, fusedRoute: fusedRoute, sourceHistory: sourceHistory, exerciseHistory: exerciseHistory },
       observedFocus: focus,
       decisions: decisions.slice().sort(function(a, b) { return a.at - b.at; }),
       eventTimeline: events.slice().sort(function(a, b) { return a.at - b.at; }),
@@ -437,7 +436,7 @@ function App() {
       <main className="main">
         <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : activeTab === 'benchmark' ? 'Benchmark laboratory' : activeTab === 'viz' ? 'Visualization laboratory' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
 
-        {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
+        {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing UI-hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
 
         {activeTab === 'cockpit' && (
           <>
