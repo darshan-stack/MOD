@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint, defaultGlicko2, glicko2Update, calibrationSummary, evaluateDecisionOutcome, updateSourceHistory, sourceReliability, brierScore } from './engine/decisionIntelligence';
 import { runBenchmark, benchmarkHeadline } from './engine/benchmark';
+import { runResilienceBenchmark } from './engine/resilienceLab';
 
 const SCENARIOS = {
   "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28, routeTruth: 'CLEAR' },
@@ -99,6 +100,10 @@ function App() {
   const [replayAt, setReplayAt] = useState(elapsed);
   const [ledgerFingerprint, setLedgerFingerprint] = useState('PENDING');
   const [benchmarkRun, setBenchmarkRun] = useState(1);
+  const [resilienceRun, setResilienceRun] = useState(1);
+  const resilience = useMemo(function() {
+    return runResilienceBenchmark({ runsPerAttack: 40, seed: 20261004 + resilienceRun - 1 });
+  }, [resilienceRun]);
   const [exerciseHistory, setExerciseHistory] = useState(function() {
     try { return JSON.parse(localStorage.getItem('sentinel-grid-exercise-history') || 'null') || {}; } catch (_) { return {}; }
   });
@@ -425,7 +430,8 @@ function App() {
           <button className={activeTab === 'team' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('team')}><span className="icon">⌁</span>Team room<em>{members.filter(function(m){return m.status === 'online';}).length}</em></button>
           <button className={activeTab === 'aar' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('aar')}><span className="icon">≡</span>AAR & replay</button>
           <button className={activeTab === 'benchmark' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('benchmark')}><span className="icon">◫</span>Benchmark lab<em>{benchmark.totalRuns}</em></button>
-           <button className={activeTab === 'viz' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('viz')}><span className="icon">◈</span>Visualization lab<em>OSS</em></button>
+          <button className={activeTab === 'resilience' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('resilience')}><span className="icon">↯</span>Red-team resilience<em>{resilience.totalRuns}</em></button>
+          <button className={activeTab === 'viz' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('viz')}><span className="icon">◈</span>Visualization lab<em>OSS</em></button>
           <div className="nav-label instructor-label">TRAINING DIRECTOR</div>
           <button className={activeTab === 'director' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('instructor'); setActiveTab('director'); }}><span className="icon">⚙</span>Exercise director</button>
           <button className="nav-item" onClick={() => exportAAR('html')}><span className="icon">⇩</span>Export AAR</button>
@@ -434,7 +440,7 @@ function App() {
       </aside>
 
       <main className="main">
-        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : activeTab === 'benchmark' ? 'Benchmark laboratory' : activeTab === 'viz' ? 'Visualization laboratory' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
+        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : activeTab === 'benchmark' ? 'Benchmark laboratory' : activeTab === 'resilience' ? 'Red-team resilience lab' : activeTab === 'viz' ? 'Visualization laboratory' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
 
         {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing UI-hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
 
@@ -471,6 +477,7 @@ function App() {
 
         {activeTab === 'team' && <TeamPanel members={members} activeSeat={activeSeat} joinSeat={joinSeat} messages={messages} messageText={messageText} setMessageText={setMessageText} sendMessage={sendMessage} degraded={teamChannelDegraded}/>}
         {activeTab === 'benchmark' && <BenchmarkPanel benchmark={benchmark} summary={benchmarkSummary} onRerun={() => setBenchmarkRun(function(v){ return v + 1; })}/>}
+        {activeTab === 'resilience' && <ResiliencePanel resilience={resilience} onRerun={() => setResilienceRun(function(v){ return v + 1; })}/>}
          {activeTab === 'viz' && <VisualizationPanel reports={reports} events={events} decisions={decisions} netHealth={netHealth} latency={latency} dropout={dropout} conflict={conflict} fusedRoute={fusedRoute} onExportBundle={exportVisualizationBundle}/>} 
         {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} setNetHealth={setNetHealth} latency={latency} setLatency={setLatency} dropout={dropout} setDropout={setDropout} conflict={conflict} setConflict={setConflict} freshnessDecay={freshnessDecay} setFreshnessDecay={setFreshnessDecay} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise}/>}
         {activeTab === 'aar' && <AARPanel decisions={decisions} events={events} reports={reports} metrics={metrics} focus={focus} replayAt={replayAt} setReplayAt={setReplayAt} elapsed={elapsed} exportAAR={exportAAR} integrityIndex={integrityIndex} confidenceGap={confidenceGap} fusedRoute={fusedRoute} ledgerFingerprint={ledgerFingerprint}/>}
@@ -791,6 +798,59 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
       <div className="panel-divider"></div>
       <div className="eyebrow">REPRODUCIBILITY</div>
       <p className="panel-note">The seed is fixed for each run. Results can be regenerated locally from the benchmark engine without external services.</p>
+    </aside>
+  </div>;
+}
+
+function ResiliencePanel({ resilience, onRerun }) {
+  var rows = Object.values(resilience.byAttack);
+  return <div className="resilience-layout">
+    <section className="resilience-main">
+      <div className="section-head">
+        <div><div className="eyebrow">RED-TEAM VALIDATION · DETERMINISTIC</div><h2>Information-attack resilience <span className="badge live">MEASURED</span></h2></div>
+        <button className="primary-btn" onClick={onRerun}>RERUN ATTACK SUITE ↻</button>
+      </div>
+      <div className="resilience-banner">
+        <div><strong>{resilience.totalRuns} adversarial synthetic cases</strong><span>Seed {resilience.seed} · same base evidence generator · no live or operational data</span></div>
+        <span className="benchmark-chip">RED TEAM</span>
+      </div>
+      <div className="resilience-hero">
+        <div><small>FALSE-CONFIDENCE REDUCTION</small><strong>{resilience.headline.falseConfidenceReduction > 0 ? '+' : ''}{resilience.headline.falseConfidenceReduction} pts</strong><span>Sentinel vs confidence-only under attacks</span></div>
+        <div><small>ATTACKS STOPPED</small><strong>{resilience.headline.attackStoppedRate}%</strong><span>Correct result or explicit abstention</span></div>
+        <div><small>SENTINEL FALSE CONFIDENCE</small><strong>{resilience.headline.sentinelFalseConfidence}%</strong><span>Wrong + ≥70% predicted probability</span></div>
+        <div><small>WORST ATTACK CLASS</small><strong>{resilience.headline.worstAttack}</strong><span>Highest naive false-confidence exposure</span></div>
+      </div>
+      <div className="section-head compact"><div><div className="eyebrow">ATTACK MATRIX</div><h2>How the information picture is stressed</h2></div><span className="micro-label">40 CASES / CLASS</span></div>
+      <div className="resilience-table">
+        <div className="resilience-row resilience-head"><span>ATTACK</span><span>NAIVE ACC</span><span>SENTINEL ACC</span><span>NAIVE FC</span><span>SENTINEL FC</span><span>STOPPED</span></div>
+        {rows.map(function(row) {
+          return <div className="resilience-row" key={row.key}>
+            <span><strong>{row.label}</strong><small>{row.description}</small></span>
+            <span>{row.naiveAccuracy}%</span>
+            <span>{row.sentinelAccuracy}%</span>
+            <span className={row.naiveFalseConfidence > row.sentinelFalseConfidence ? 'resilience-good' : ''}>{row.naiveFalseConfidence}%</span>
+            <span className={row.sentinelFalseConfidence === 0 ? 'resilience-good' : ''}>{row.sentinelFalseConfidence}%</span>
+            <span>{row.attackStoppedRate}%</span>
+          </div>;
+        })}
+      </div>
+      <div className="resilience-note"><strong>Interpretation.</strong> This harness is intentionally adversarial: it probes stale high-confidence evidence, conflict bursts, true-source dropout, duplicate-source echoes and delayed contradictions. “Stopped” means the Sentinel result was correct or it abstained rather than committing to a wrong high-confidence claim. This is a synthetic robustness test, not evidence of operational effectiveness.</div>
+    </section>
+    <aside className="resilience-side">
+      <div className="eyebrow">WHY THIS MATTERS</div>
+      <h3>From benchmark to red-team evaluation</h3>
+      <div className="benchmark-points">
+        <div><b>01</b><span><strong>Attack the assumptions</strong> Do not only test average conditions; deliberately construct misleading information states.</span></div>
+        <div><b>02</b><span><strong>Measure overconfidence</strong> A wrong answer with high confidence is more important to catch than a cautious abstention.</span></div>
+        <div><b>03</b><span><strong>Keep it reproducible</strong> Every run is seeded so the same attack suite can be re-executed in a presentation or lab notebook.</span></div>
+        <div><b>04</b><span><strong>Keep the human in control</strong> The system can abstain and surface uncertainty; it never turns a synthetic signal into an operational action.</span></div>
+      </div>
+      <div className="panel-divider"></div>
+      <div className="eyebrow">RESEARCH EXTENSION</div>
+      <p className="benchmark-callout">Stress the decision model with a red-team generator before claiming that uncertainty handling is robust.</p>
+      <div className="panel-divider"></div>
+      <div className="eyebrow">REPRODUCIBILITY</div>
+      <p className="panel-note">Seed {resilience.seed} · {resilience.totalRuns} total cases · five attack classes · deterministic report mutations.</p>
     </aside>
   </div>;
 }
