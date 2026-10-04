@@ -16,4 +16,6 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: node --check server/index.js
+      - run: node --check src/engine/realtimeSimulation.js
       - run: npm run build

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint } from './engine/decisionIntelligence';
+import { nextSimulationEvents, simulationPlan, simulationProgress } from './engine/realtimeSimulation';
 
 const SCENARIOS = {
   "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28 },
@@ -25,6 +26,8 @@ const BASE_EVENTS = [
 ];
 
 const DECISION_TYPES = ['HOLD', 'REROUTE', 'REPORT', 'VERIFY'];
+const ROLE_DOMAINS = { OC: ['ALL'], LAND: ['LAND'], AIR: ['AIR'], CYBER: ['CYBER'], EW: ['EW'] };
+const ROLE_LABELS = { OC: 'Overall Commander', LAND: 'Land Cell', AIR: 'Air Cell', CYBER: 'Cyber Cell', EW: 'EW Cell' };
 
 const cloneReports = () => BASE_REPORTS.map(function(r) { return { ...r }; });
 const clamp = function(v, min, max) { min = min === undefined ? 0 : min; max = max === undefined ? 100 : max; return Math.max(min, Math.min(max, Number(v))); };
@@ -47,7 +50,10 @@ function App() {
   const [mode, setMode] = useState('trainee');
   const [scenarioKey, setScenarioKey] = useState('ALPHA-07');
   const [running, setRunning] = useState(true);
-  const [elapsed, setElapsed] = useState(1122);
+  const [elapsed, setElapsed] = useState(0);
+  const [autoSimulation, setAutoSimulation] = useState(true);
+  const [simSpeed, setSimSpeed] = useState(2);
+  const [triggeredSimulationEvents, setTriggeredSimulationEvents] = useState([]);
   const [reports, setReports] = useState(cloneReports);
   const [events, setEvents] = useState(BASE_EVENTS);
   const [decisions, setDecisions] = useState([]);
@@ -59,6 +65,9 @@ function App() {
     { id: 'patel', initials: 'NP', name: 'N. Patel', role: 'NETWATCH', status: 'degraded' }
   ]);
   const [activeSeat, setActiveSeat] = useState('you');
+  const [participantRole, setParticipantRole] = useState('OC');
+  const [sessionId, setSessionId] = useState('SG-' + Math.floor(1000 + Math.random() * 9000));
+  const [networkStatus, setNetworkStatus] = useState('CONNECTED');
   const [selectedDomain, setSelectedDomain] = useState('ALL');
   const [selectedEvidence, setSelectedEvidence] = useState(['R-701']);
   const [decisionType, setDecisionType] = useState('VERIFY');
@@ -82,10 +91,40 @@ function App() {
   const confidenceGap = useMemo(function() { return computeCalibrationGap(decisions, reports); }, [decisions, reports]);
 
   useEffect(function() {
-    if (!running) return undefined;
-    var timer = setInterval(function() { setElapsed(function(v) { return v + 1; }); }, 1000);
+    if (!running || mode !== 'instructor') return undefined;
+    var timer = setInterval(function() {
+      setElapsed(function(v) {
+        var next = v + simSpeed;
+        broadcast({ type: 'CLOCK_TICK', elapsed: next });
+        return next;
+      });
+    }, 1000);
     return function() { clearInterval(timer); };
-  }, [running]);
+  }, [running, simSpeed, mode]);
+
+  useEffect(function() {
+    if (!running) return undefined;
+    var timer = setInterval(function() {
+      setReports(function(current) {
+        return current.map(function(report) {
+          if (report.state === 'dropped') return report;
+          var decay = Number(freshnessDecay || 0) / 60;
+          return { ...report, freshness: clamp(report.freshness - decay * Math.max(1, simSpeed), 0, 100), state: report.freshness - decay * Math.max(1, simSpeed) < 40 ? 'stale' : report.state };
+        });
+      });
+    }, 1000);
+    return function() { clearInterval(timer); };
+  }, [running, freshnessDecay, simSpeed]);
+
+  useEffect(function() {
+    if (mode !== 'instructor' || !autoSimulation || !running) return;
+    var due = nextSimulationEvents(scenarioKey, elapsed, triggeredSimulationEvents);
+    if (!due.length) return;
+    due.forEach(function(event) {
+      setTriggeredSimulationEvents(function(current) { return current.indexOf(event.id) >= 0 ? current : current.concat(event.id); });
+      inject(event.kind, { source: 'AUTO', simulationId: event.id, simulationTitle: event.title, at: event.at });
+    });
+  }, [elapsed, scenarioKey, mode, autoSimulation, running, triggeredSimulationEvents]);
 
   useEffect(function() { setReplayAt(elapsed); }, [elapsed]);
   useEffect(function() { sha256Fingerprint({ scenarioKey: scenarioKey, reports: reports, decisions: decisions, events: events, messages: messages }).then(function(hash) { setLedgerFingerprint(hash.slice(0, 24).toUpperCase()); }); }, [scenarioKey, reports, decisions, events, messages]);
@@ -109,9 +148,43 @@ function App() {
         setDecisions(function(current) { return current.some(function(d) { return d.id === p.decision.id; }) ? current : [p.decision].concat(current); });
       }
       if (p.type === 'EVENT') {
-        setEvents(function(current) { return current.concat(p.event); });
+        setEvents(function(current) { return current.some(function(e) { return e.id && e.id === p.event.id; }) ? current : current.concat(p.event); });
+      }
+      if (p.type === 'CLOCK_TICK') setElapsed(p.elapsed);
+      if (p.type === 'CLOCK_CONTROL') setRunning(p.running);
+      if (p.type === 'PARAM') {
+        var setters = { netHealth: setNetHealth, latency: setLatency, dropout: setDropout, conflict: setConflict, freshnessDecay: setFreshnessDecay };
+        if (setters[p.field]) setters[p.field](p.value);
+      }
+      if (p.type === 'SIMULATION_OPTIONS') {
+        if (typeof p.autoSimulation === 'boolean') setAutoSimulation(p.autoSimulation);
+        if (Number.isFinite(p.simSpeed)) setSimSpeed(p.simSpeed);
+      }
+      if (p.type === 'LOAD_SCENARIO') loadScenario(p.key, { remote: true });
+      if (p.type === 'SIM_INJECT') inject(p.kind, { remote: true, simulationId: p.simulationId, simulationTitle: p.simulationTitle });
+      if (p.type === 'STATE_SNAPSHOT') {
+        var snap = p.snapshot || {};
+        if (snap.scenarioKey) setScenarioKey(snap.scenarioKey);
+        if (Number.isFinite(snap.elapsed)) setElapsed(snap.elapsed);
+        if (typeof snap.running === 'boolean') setRunning(snap.running);
+        if (typeof snap.autoSimulation === 'boolean') setAutoSimulation(snap.autoSimulation);
+        if (Number.isFinite(snap.simSpeed)) setSimSpeed(snap.simSpeed);
+        if (Array.isArray(snap.reports)) setReports(snap.reports);
+        if (Array.isArray(snap.events)) setEvents(snap.events);
+        if (Array.isArray(snap.decisions)) setDecisions(snap.decisions);
+        if (Array.isArray(snap.messages)) setMessages(snap.messages);
+        if (Array.isArray(snap.members)) setMembers(snap.members);
+        if (Number.isFinite(snap.netHealth)) setNetHealth(snap.netHealth);
+        if (Number.isFinite(snap.latency)) setLatency(snap.latency);
+        if (Number.isFinite(snap.dropout)) setDropout(snap.dropout);
+        if (Number.isFinite(snap.conflict)) setConflict(snap.conflict);
+        if (Number.isFinite(snap.freshnessDecay)) setFreshnessDecay(snap.freshnessDecay);
+      }
+      if (p.type === 'HELLO') {
+        broadcast({ type: 'STATE_SNAPSHOT', snapshot: { scenarioKey: scenarioKey, elapsed: elapsed, running: running, autoSimulation: autoSimulation, simSpeed: simSpeed, reports: reports, events: events, decisions: decisions, messages: messages, members: members, netHealth: netHealth, latency: latency, dropout: dropout, conflict: conflict, freshnessDecay: freshnessDecay } });
       }
     };
+    setTimeout(function() { channel.postMessage({ type: 'HELLO' }); }, 150);
     return function() { channel.close(); };
   }, []);
 
@@ -119,19 +192,37 @@ function App() {
     if (channelRef.current) channelRef.current.postMessage(payload);
   };
 
-  const addEvent = function(tag, text) {
-    var event = { at: elapsed, tag: tag, text: text };
+  const addEvent = function(tag, text, options) {
+    var event = { id: 'E-' + Date.now() + '-' + Math.random().toString(16).slice(2), at: options && Number.isFinite(options.at) ? options.at : elapsed, tag: tag, text: text };
     setEvents(function(current) { return current.concat(event); });
-    broadcast({ type: 'EVENT', event: event });
+    if (!options || !options.silent) broadcast({ type: 'EVENT', event: event });
   };
 
+  const roleDomains = ROLE_DOMAINS[participantRole] || ROLE_DOMAINS.OC;
   const visibleReports = useMemo(function() {
-    return selectedDomain === 'ALL' ? reports : reports.filter(function(r) { return r.domain === selectedDomain; });
-  }, [reports, selectedDomain]);
+    var roleFiltered = roleDomains.indexOf('ALL') >= 0 ? reports : reports.filter(function(r) { return roleDomains.indexOf(r.domain) >= 0; });
+    return selectedDomain === 'ALL' ? roleFiltered : roleFiltered.filter(function(r) { return r.domain === selectedDomain; });
+  }, [reports, selectedDomain, participantRole]);
 
   const trustRows = useMemo(function() {
     return reports.map(function(r) { return { ...r, trust: trustScore(r) }; }).sort(function(a, b) { return b.trust - a.trust; });
   }, [reports]);
+
+  const simulateMessageDelivery = function(msg) {
+    var dropChance = Math.min(0.7, dropout / 150 + (100 - netHealth) / 500);
+    var delayMs = Math.round(Math.min(12000, latency * 1000 * 0.35) + Math.random() * 800);
+    if (Math.random() < dropChance) {
+      addEvent('TEAM', 'Message dropped by simulated team network · ' + msg.id);
+      setNetworkStatus('DEGRADED');
+      return;
+    }
+    setNetworkStatus(delayMs > 2500 ? 'HIGH LATENCY' : 'CONNECTED');
+    setTimeout(function() {
+      var delivered = { ...msg, deliveredAt: elapsed + Math.max(1, Math.round(delayMs / 1000)) };
+      setMessages(function(current) { return [delivered].concat(current.filter(function(m) { return m.id !== msg.id; })); });
+      broadcast({ type: 'TEAM_MESSAGE', message: delivered });
+    }, delayMs);
+  };
 
   const metrics = useMemo(function() {
     var count = decisions.length;
@@ -153,19 +244,22 @@ function App() {
     return out.length ? out : ['evidence corroboration'];
   }, [decisions, reports]);
 
-  const inject = function(kind) {
+  const inject = function(kind, meta) {
+    meta = meta || {};
+    var remote = meta.remote === true;
+    var eventOptions = { silent: true, at: Number.isFinite(meta.at) ? meta.at : undefined };
     if (kind === 'delay') {
       setLatency(function(v) { return clamp(v + 18); });
       setFreshnessDecay(function(v) { return clamp(v + 10); });
       setReports(function(current) { return current.map(function(r) { return r.domain === 'AIR' ? { ...r, freshness: clamp(r.freshness - 14), state: clamp(r.freshness - 14) < 40 ? 'stale' : r.state } : r; }); });
-      addEvent('INJECT', 'ISR feed delayed. Freshness decay accelerated.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'ISR feed delayed. Freshness decay accelerated.', eventOptions);
     }
     if (kind === 'dropout') {
       setDropout(function(v) { return clamp(v + 14); });
       setNetHealth(function(v) { return clamp(v - 13); });
       setMembers(function(current) { return current.map(function(m) { return m.id === 'patel' ? { ...m, status: 'offline' } : m; }); });
       setReports(function(current) { return current.map(function(r) { return r.id === 'R-703' ? { ...r, state: 'dropped', detail: 'Source unreachable · last packet retained locally' } : r; }); });
-      addEvent('INJECT', 'NETWATCH node dropped. Last-known data retained.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'NETWATCH node dropped. Last-known data retained.', eventOptions);
     }
     if (kind === 'conflict') {
       setConflict(function(v) { return clamp(v + 16); });
@@ -175,22 +269,41 @@ function App() {
         if (!exists) next.push({ id: 'R-705', time: '14:36:02Z', source: 'Echo 3 / LAND RELAY', domain: 'EW', topic: 'route_echo', stance: 'BLOCKED', headline: 'Route ECHO may be obstructed', detail: 'Independent report disagrees with Alpha 1-1', confidence: 61, freshness: 89, state: 'conflict', truth: 'CONTRADICTORY', corroborated: 1, icon: '↯' });
         return next;
       });
-      addEvent('INJECT', 'High-conflict evidence pair injected: same claim, opposing stances.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'High-conflict evidence pair injected: same claim, opposing stances.', eventOptions);
     }
     if (kind === 'stale') {
       setFreshnessDecay(function(v) { return clamp(v + 18); });
       setReports(function(current) { return current.map(function(r) { return r.id === 'R-701' ? { ...r, state: 'stale', freshness: 19, detail: 'Effective age 3m 12s · review before relying on it' } : r; }); });
-      addEvent('INJECT', 'Raven-2 feed aged beyond the normal decision window.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'Raven-2 feed aged beyond the normal decision window.', eventOptions);
     }
     if (kind === 'split') {
       setTeamChannelDegraded(true);
       setDropout(function(v) { return clamp(v + 18); });
       setNetHealth(function(v) { return clamp(v - 18); });
-      addEvent('INJECT', 'Team channel split. Cross-cell transmissions may be delayed or dropped.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'Team channel split. Cross-cell transmissions may be delayed or dropped.', eventOptions);
     }
+    if (!remote) broadcast({ type: 'SIM_INJECT', kind: kind, simulationId: meta.simulationId || null, simulationTitle: meta.simulationTitle || null });
   };
 
-  const loadScenario = function(key) {
+  const setParameter = function(field, value, remote) {
+    var setters = { netHealth: setNetHealth, latency: setLatency, dropout: setDropout, conflict: setConflict, freshnessDecay: setFreshnessDecay };
+    if (setters[field]) setters[field](Number(value));
+    if (!remote) broadcast({ type: 'PARAM', field: field, value: Number(value) });
+  };
+
+  const setExerciseRunning = function(nextRunning, remote) {
+    setRunning(nextRunning);
+    if (!remote) broadcast({ type: 'CLOCK_CONTROL', running: nextRunning });
+  };
+
+  const updateSimulationOptions = function(nextAuto, nextSpeed) {
+    if (typeof nextAuto === 'boolean') setAutoSimulation(nextAuto);
+    if (Number.isFinite(nextSpeed)) setSimSpeed(nextSpeed);
+    broadcast({ type: 'SIMULATION_OPTIONS', autoSimulation: typeof nextAuto === 'boolean' ? nextAuto : autoSimulation, simSpeed: Number.isFinite(nextSpeed) ? nextSpeed : simSpeed });
+  };
+
+  const loadScenario = function(key, meta) {
+    meta = meta || {};
     var s = SCENARIOS[key];
     setScenarioKey(key);
     setNetHealth(100 - s.comms);
@@ -204,7 +317,9 @@ function App() {
     setElapsed(0);
     setReplayAt(0);
     setRunning(true);
-    setEvents([{ at: 0, tag: 'SYSTEM', text: 'Loaded ' + s.name + '. Ground truth remains hidden until AAR.' }]);
+    setTriggeredSimulationEvents([]);
+    setEvents([{ id: 'E-' + Date.now(), at: 0, tag: 'SYSTEM', text: 'Loaded ' + s.name + '. Real-time degradation schedule armed; ground truth remains hidden until AAR.' }]);
+    if (!meta.remote) broadcast({ type: 'LOAD_SCENARIO', key: key });
   };
 
   const toggleEvidence = function(id) {
@@ -234,10 +349,10 @@ function App() {
 
   const sendMessage = function() {
     if (!messageText.trim()) return;
-    var msg = { id: 'M-' + Date.now(), at: elapsed, actor: 'Arjun Mehta', initials: 'AM', text: messageText.trim() };
+    var msg = { id: 'M-' + Date.now(), at: elapsed, actor: 'Arjun Mehta', initials: 'AM', text: messageText.trim(), delivery: 'PENDING' };
     setMessages(function(current) { return [msg].concat(current); });
-    addEvent('TEAM', 'You → ALPHA CELL: ' + msg.text);
-    broadcast({ type: 'TEAM_MESSAGE', message: msg });
+    addEvent('TEAM', 'You → ALPHA CELL: ' + msg.text + ' · transmission started');
+    simulateMessageDelivery(msg);
     setMessageText('');
   };
 
@@ -320,7 +435,7 @@ function App() {
       </aside>
 
       <main className="main">
-        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
+        <header className="topbar"><div><div className="breadcrumb">SESSION / {sessionId} / EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : 'Exercise director'}</h1></div><div className="top-actions"><div className="seat-switch"><small>SEAT</small>{Object.keys(ROLE_LABELS).map(function(role){return <button key={role} className={participantRole === role ? 'active' : ''} onClick={() => { setParticipantRole(role); setNetworkStatus('CONNECTED'); }}>{role}</button>;})}</div><div className="sync"><span className="sync-dot"></span>{networkStatus} <small>{mode.toUpperCase()}</small></div><button className="ghost-btn" onClick={() => setExerciseRunning(!running)}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
 
         {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
 
@@ -354,10 +469,10 @@ function App() {
         )}
 
         {activeTab === 'team' && <TeamPanel members={members} activeSeat={activeSeat} joinSeat={joinSeat} messages={messages} messageText={messageText} setMessageText={setMessageText} sendMessage={sendMessage} degraded={teamChannelDegraded}/>}
-        {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} setNetHealth={setNetHealth} latency={latency} setLatency={setLatency} dropout={dropout} setDropout={setDropout} conflict={conflict} setConflict={setConflict} freshnessDecay={freshnessDecay} setFreshnessDecay={setFreshnessDecay} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise}/>}
+        {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} latency={latency} dropout={dropout} conflict={conflict} freshnessDecay={freshnessDecay} setParameter={setParameter} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise} elapsed={elapsed} autoSimulation={autoSimulation} simSpeed={simSpeed} updateSimulationOptions={updateSimulationOptions} triggeredSimulationEvents={triggeredSimulationEvents}/>}
         {activeTab === 'aar' && <AARPanel decisions={decisions} events={events} reports={reports} metrics={metrics} focus={focus} replayAt={replayAt} setReplayAt={setReplayAt} elapsed={elapsed} exportAAR={exportAAR} integrityIndex={integrityIndex} confidenceGap={confidenceGap} fusedRoute={fusedRoute} ledgerFingerprint={ledgerFingerprint}/>}
 
-        <footer className="app-footer"><span>Sentinel Grid Ω · synthetic training environment · no operational data</span><span>Browser-local room · auditable ledger · hidden-truth AAR</span></footer>
+        <footer className="app-footer"><span>Sentinel Grid Ω · synthetic training environment · no operational data</span><span>Real-time web simulation · instructor-authoritative clock · auditable ledger · hidden-truth AAR</span></footer>
       </main>
     </div>
   );
@@ -370,11 +485,45 @@ function Presence(props) {
 }
 
 function TeamPanel({ members, activeSeat, joinSeat, messages, messageText, setMessageText, sendMessage, degraded }) {
-  return <div className="team-layout"><section className="chat-panel"><div className="section-head"><div><div className="eyebrow">TEAM ROOM</div><h2>ALPHA CELL <span className="channel-lock">⌁</span></h2></div><span className={'badge ' + (degraded ? 'ew' : 'live')}>{degraded ? 'DEGRADED NET' : 'STABLE NET'}</span></div><div className="room-banner"><div><strong>Multi-seat prototype</strong><span>Open this Vite URL in another browser tab to join the local team room.</span></div><span className="room-chip">BroadcastChannel</span></div><div className="chat-messages">{messages.slice().reverse().map(function(c){return <div className="chat-message" key={c.id}><div className="mini-avatar">{c.initials}</div><div><div className="chat-meta"><strong>{c.actor}</strong><span>T+{fmtClock(c.at)}</span></div><p>{c.text}</p></div></div>;})}<div className="system-message">Critical traffic may be delayed, dropped or arrive out of order. Verify before escalating.</div></div><div className="composer"><textarea value={messageText} onChange={function(e){setMessageText(e.target.value);}} onKeyDown={function(e){if(e.key === 'Enter' && !e.shiftKey){e.preventDefault();sendMessage();}}} placeholder="Transmit to ALPHA CELL…"/><button className="primary-btn" onClick={sendMessage}>TRANSMIT ↗</button></div></section><aside className="team-side"><div className="eyebrow">TEAM SEATS</div>{members.map(function(m){return <button key={m.id} className={activeSeat === m.id ? 'channel active' : 'channel'} onClick={() => joinSeat(m)}><span>{m.initials}</span>{m.role}<small>{m.status}</small></button>;})}<div className="side-tip"><strong>Training cue</strong><p>Track source, age, corroboration and contradiction before committing a decision.</p></div></aside></div>;
+  return <div className="team-layout"><section className="chat-panel"><div className="section-head"><div><div className="eyebrow">TEAM ROOM</div><h2>ALPHA CELL <span className="channel-lock">⌁</span></h2></div><span className={'badge ' + (degraded ? 'ew' : 'live')}>{degraded ? 'DEGRADED NET' : 'STABLE NET'}</span></div><div className="room-banner"><div><strong>Multi-seat live exercise</strong><span>Session {sessionId} · {ROLE_LABELS[participantRole]} · communication effects are simulated by the exercise engine.</span></div><span className="room-chip">BroadcastChannel</span></div><div className="chat-messages">{messages.slice().reverse().map(function(c){return <div className="chat-message" key={c.id}><div className="mini-avatar">{c.initials}</div><div><div className="chat-meta"><strong>{c.actor}</strong><span>T+{fmtClock(c.at)}</span></div><p>{c.text}</p></div></div>;})}<div className="system-message">Critical traffic may be delayed, dropped or arrive out of order. Verify before escalating.</div></div><div className="composer"><textarea value={messageText} onChange={function(e){setMessageText(e.target.value);}} onKeyDown={function(e){if(e.key === 'Enter' && !e.shiftKey){e.preventDefault();sendMessage();}}} placeholder="Transmit to ALPHA CELL…"/><button className="primary-btn" onClick={sendMessage}>TRANSMIT ↗</button></div></section><aside className="team-side"><div className="eyebrow">TEAM SEATS</div>{members.map(function(m){return <button key={m.id} className={activeSeat === m.id ? 'channel active' : 'channel'} onClick={() => joinSeat(m)}><span>{m.initials}</span>{m.role}<small>{m.status}</small></button>;})}<div className="side-tip"><strong>Training cue</strong><p>Track source, age, corroboration and contradiction before committing a decision.</p></div></aside></div>;
 }
 
-function DirectorPanel({ scenarioKey, scenario, onScenario, netHealth, setNetHealth, latency, setLatency, dropout, setDropout, conflict, setConflict, freshnessDecay, setFreshnessDecay, inject, metrics, events, decisions, focus, generateNextExercise }) {
-  return <div className="director-layout"><section className="director-main"><div className="section-head"><div><div className="eyebrow">SCENARIO DIRECTOR</div><h2>Inject friction without breaking exercise flow</h2></div><span className="badge live">LIVE CONTROL</span></div><div className="scenario-picker">{Object.entries(SCENARIOS).map(function(pair){var key=pair[0], item=pair[1];return <button key={key} className={scenarioKey === key ? 'scenario-card active' : 'scenario-card'} onClick={() => onScenario(key)}><small>SCENARIO</small><strong>{key}</strong><span>{item.phase}</span><span>Difficulty {item.difficulty}/10</span></button>;})}</div><div className="director-controls"><Control label="NETWORK HEALTH" value={netHealth} suffix="%" onChange={setNetHealth}/><Control label="TELEMETRY LATENCY" value={latency} suffix="sec" onChange={setLatency}/><Control label="VOICE DROPOUT" value={dropout} suffix="%" onChange={setDropout}/><Control label="CONFLICT PRESSURE" value={conflict} suffix="%" onChange={setConflict}/><Control label="FRESHNESS DECAY" value={freshnessDecay} suffix="pts/min" onChange={setFreshnessDecay}/></div><div className="event-injection"><div className="section-head compact"><div><div className="eyebrow">MID-EXERCISE INJECTION</div><h2>Change the information environment</h2></div></div><div className="inject-grid large"><button onClick={() => inject('delay')}><span>◴</span><strong>Delay feed</strong><small>Increase age + latency</small></button><button onClick={() => inject('dropout')}><span>⌁</span><strong>Drop node</strong><small>Remove a source</small></button><button onClick={() => inject('conflict')}><span>↯</span><strong>Conflict report</strong><small>Create source disagreement</small></button><button onClick={() => inject('stale')}><span>◷</span><strong>Age report</strong><small>Force freshness decay</small></button><button onClick={() => inject('split')}><span>⫸</span><strong>Split team net</strong><small>Cross-cell delay/dropout</small></button></div></div><div className="director-footer-card"><div><small>NEXT TRAINING FOCUS</small><strong>{focus.join(' · ')}</strong></div><button className="primary-btn" onClick={generateNextExercise}>GENERATE NEXT EXERCISE ↗</button></div></section><aside className="director-side"><div className="eyebrow">LIVE MONITOR</div><h3>Team decision trace</h3><div className="monitor-grid"><Metric label="DECISIONS" value={metrics.count}/><Metric label="AVG CONFIDENCE" value={metrics.avgConfidence + '%'}/><Metric label="TEAM COHERENCE" value={metrics.teamCoherence + '%'}/><Metric label="EVIDENCE COVERAGE" value={metrics.evidenceCoverage + '%'}/></div><div className="panel-divider"></div><div className="eyebrow">LATEST DECISIONS</div><div className="decision-stream">{decisions.slice(0,6).map(function(d){return <div className="stream-row" key={d.id}><span>T+{fmtClock(d.at)}</span><strong>{d.action}</strong><small>{d.rationale}</small></div>;})}</div><div className="panel-divider"></div><div className="eyebrow">LATEST EVENTS</div><div className="decision-stream">{events.slice(-5).reverse().map(function(e,i){return <div className="stream-row" key={e.at+'-'+i}><span>T+{fmtClock(e.at)}</span><strong>{e.tag}</strong><small>{e.text}</small></div>;})}</div></aside></div>;
+function SimulationTimeline({ scenarioKey, elapsed, autoSimulation, simSpeed, updateSimulationOptions, triggeredSimulationEvents }) {
+  var plan = simulationPlan(scenarioKey);
+  var progress = simulationProgress(scenarioKey, elapsed);
+  return <div className="simulation-console">
+    <div className="simulation-console-head">
+      <div>
+        <div className="eyebrow">REAL-TIME EXERCISE ORCHESTRATOR</div>
+        <h3>Live degradation timeline <span className="badge live">{progress.completed}/{progress.total} EVENTS</span></h3>
+      </div>
+      <div className="sim-controls">
+        <button className={'sim-toggle ' + (autoSimulation ? 'active' : '')} onClick={() => updateSimulationOptions(!autoSimulation, simSpeed)}>
+          <span className="sim-dot"></span>{autoSimulation ? 'AUTO SIM ON' : 'AUTO SIM OFF'}
+        </button>
+        <div className="sim-speed">
+          {[1,2,4,8].map(function(speed){return <button key={speed} className={simSpeed === speed ? 'active' : ''} onClick={() => updateSimulationOptions(autoSimulation, speed)}>{speed}×</button>;})}
+        </div>
+      </div>
+    </div>
+    <div className="sim-progress"><div style={{width: progress.percent + '%'}}></div></div>
+    <div className="sim-steps">
+      {plan.map(function(event){
+        var done = triggeredSimulationEvents.indexOf(event.id) >= 0;
+        var live = !done && progress.next && progress.next.id === event.id;
+        return <div className={'sim-step ' + (done ? 'done' : live ? 'next' : '')} key={event.id}>
+          <div className="sim-step-time">T+{fmtClock(event.at)}</div>
+          <div className="sim-step-body"><strong>{event.title}</strong><small>{event.summary}</small></div>
+          <span>{done ? '✓' : live ? 'NEXT' : 'ARMED'}</span>
+        </div>;
+      })}
+    </div>
+    <div className="sim-foot"><span><b>LIVE CLOCK</b> T+{fmtClock(elapsed)}</span><span>{progress.next ? 'Next: ' + progress.next.title + ' @ T+' + fmtClock(progress.next.at) : 'Scenario sequence complete'}</span></div>
+  </div>;
+}
+
+function DirectorPanel({ scenarioKey, scenario, onScenario, netHealth, latency, dropout, conflict, freshnessDecay, setParameter, inject, metrics, events, decisions, focus, generateNextExercise, elapsed, autoSimulation, simSpeed, updateSimulationOptions, triggeredSimulationEvents }) {
+  return <div className="director-layout"><section className="director-main"><div className="section-head"><div><div className="eyebrow">SCENARIO DIRECTOR</div><h2>Inject friction without breaking exercise flow</h2></div><span className="badge live">LIVE CONTROL</span></div><div className="scenario-picker">{Object.entries(SCENARIOS).map(function(pair){var key=pair[0], item=pair[1];return <button key={key} className={scenarioKey === key ? 'scenario-card active' : 'scenario-card'} onClick={() => onScenario(key)}><small>SCENARIO</small><strong>{key}</strong><span>{item.phase}</span><span>Difficulty {item.difficulty}/10</span></button>;})}</div><div className="director-controls"><Control label="NETWORK HEALTH" value={netHealth} suffix="%" onChange={function(v){setParameter("netHealth", v);}}/><Control label="TELEMETRY LATENCY" value={latency} suffix="sec" onChange={function(v){setParameter("latency", v);}}/><Control label="VOICE DROPOUT" value={dropout} suffix="%" onChange={function(v){setParameter("dropout", v);}}/><Control label="CONFLICT PRESSURE" value={conflict} suffix="%" onChange={function(v){setParameter("conflict", v);}}/><Control label="FRESHNESS DECAY" value={freshnessDecay} suffix="pts/min" onChange={function(v){setParameter("freshnessDecay", v);}}/></div><SimulationTimeline scenarioKey={scenarioKey} elapsed={elapsed} autoSimulation={autoSimulation} simSpeed={simSpeed} updateSimulationOptions={updateSimulationOptions} triggeredSimulationEvents={triggeredSimulationEvents}/><div className="event-injection"><div className="section-head compact"><div><div className="eyebrow">MID-EXERCISE INJECTION</div><h2>Change the information environment</h2></div></div><div className="inject-grid large"><button onClick={() => inject('delay')}><span>◴</span><strong>Delay feed</strong><small>Increase age + latency</small></button><button onClick={() => inject('dropout')}><span>⌁</span><strong>Drop node</strong><small>Remove a source</small></button><button onClick={() => inject('conflict')}><span>↯</span><strong>Conflict report</strong><small>Create source disagreement</small></button><button onClick={() => inject('stale')}><span>◷</span><strong>Age report</strong><small>Force freshness decay</small></button><button onClick={() => inject('split')}><span>⫸</span><strong>Split team net</strong><small>Cross-cell delay/dropout</small></button></div></div><div className="director-footer-card"><div><small>NEXT TRAINING FOCUS</small><strong>{focus.join(' · ')}</strong></div><button className="primary-btn" onClick={generateNextExercise}>GENERATE NEXT EXERCISE ↗</button></div></section><aside className="director-side"><div className="eyebrow">LIVE MONITOR</div><h3>Team decision trace</h3><div className="monitor-grid"><Metric label="DECISIONS" value={metrics.count}/><Metric label="AVG CONFIDENCE" value={metrics.avgConfidence + '%'}/><Metric label="TEAM COHERENCE" value={metrics.teamCoherence + '%'}/><Metric label="EVIDENCE COVERAGE" value={metrics.evidenceCoverage + '%'}/></div><div className="panel-divider"></div><div className="eyebrow">LATEST DECISIONS</div><div className="decision-stream">{decisions.slice(0,6).map(function(d){return <div className="stream-row" key={d.id}><span>T+{fmtClock(d.at)}</span><strong>{d.action}</strong><small>{d.rationale}</small></div>;})}</div><div className="panel-divider"></div><div className="eyebrow">LATEST EVENTS</div><div className="decision-stream">{events.slice(-5).reverse().map(function(e,i){return <div className="stream-row" key={e.at+'-'+i}><span>T+{fmtClock(e.at)}</span><strong>{e.tag}</strong><small>{e.text}</small></div>;})}</div></aside></div>;
 }
 
 function Control({ label, value, suffix, onChange }) {
