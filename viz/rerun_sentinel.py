@@ -62,7 +62,9 @@ def main() -> None:
         rr.save(str(output_path))
     if args.web_viewer:
         server_uri = rr.serve_grpc()
-        rr.serve_web_viewer(connect_to=server_uri, open_browser=True)
+        rr.serve_web_viewer(web_port=9090, connect_to=server_uri, open_browser=True)
+        print("Rerun web viewer: http://127.0.0.1:9090")
+        print(f"Rerun gRPC source: {server_uri}")
 
     rr.log("/", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)
 
