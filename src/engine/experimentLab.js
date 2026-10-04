@@ -9,6 +9,7 @@
 
 import { generateScenario } from './scenarioGenerator.js';
 import { robustFuse, glicko2Update, defaultGlicko2, evaluateDecisionOutcome, brierScore } from './decisionIntelligence.js';
+import { runExperimentStatistics } from './statisticsLab.js';
 
 const ACTION_FOR_LABEL = {
   CLEAR: 'HOLD',
@@ -136,10 +137,12 @@ export function runCurriculumExperiment({
   const adaptiveRatings = Array(roundsPerSession).fill(0);
   const fixedDifficultyBuckets = Object.fromEntries(DIFFICULTIES.map(d => [d, { correct: 0, cases: 0 }]));
   const adaptiveDifficultyBuckets = Object.fromEntries(DIFFICULTIES.map(d => [d, { correct: 0, cases: 0 }]));
+  const finalSessionRatings = [];
 
   for (let session = 0; session < sessions; session++) {
     let fixedSkill = defaultGlicko2();
     let adaptiveSkill = defaultGlicko2();
+
     for (let round = 0; round < roundsPerSession; round++) {
       const baseSeed = Number(seed) + session * 1000 + round * 17;
       const fixedDiff = fixedDifficulty(round);
@@ -235,8 +238,25 @@ export function runCurriculumExperiment({
         fixedCorrect: fixedOutcome.correct ? 1 : 0,
         adaptiveCorrect: adaptiveOutcome.correct ? 1 : 0,
         fixedConfidence: fixedChoice.confidence,
-        adaptiveConfidence: adaptiveChoice.confidence
+        adaptiveConfidence: adaptiveChoice.confidence,
+        fixedBrier,
+        adaptiveBrier,
+        fixedFinalRating: null,
+        adaptiveFinalRating: null
       });
+    }
+
+    const fixedFinalRating = fixedSkill.rating;
+    const adaptiveFinalRating = adaptiveSkill.rating;
+    finalSessionRatings.push({
+      session: session + 1,
+      fixedFinalRating: Number(fixedFinalRating.toFixed(2)),
+      adaptiveFinalRating: Number(adaptiveFinalRating.toFixed(2))
+    });
+
+    for (let i = pairedRows.length - roundsPerSession; i < pairedRows.length; i++) {
+      pairedRows[i].fixedFinalRating = Number(fixedFinalRating.toFixed(2));
+      pairedRows[i].adaptiveFinalRating = Number(adaptiveFinalRating.toFixed(2));
     }
   }
 
@@ -284,6 +304,23 @@ export function runCurriculumExperiment({
     ? Number((finalBand.reduce((s, x) => s + x.adaptiveAccuracy, 0) / finalBand.length).toFixed(1))
     : adaptiveSummary.accuracy;
 
+  const statistics = runExperimentStatistics(pairedRows, {
+    sessions,
+    roundsPerSession,
+    seed: Number(seed) + 700,
+    bootstrapRepetitions: 2000,
+    permutationRepetitions: 20000
+  });
+
+  const statisticsByRound = statistics.roundConfidence;
+  learningCurve.forEach(function(row, index) {
+    const interval = statisticsByRound[index];
+    if (!interval) return;
+    row.fixedAccuracyCI95 = interval.fixedAccuracyCI95;
+    row.adaptiveAccuracyCI95 = interval.adaptiveAccuracyCI95;
+    row.accuracyGainCI95 = interval.accuracyGainCI95;
+  });
+
   return {
     seed,
     sessions,
@@ -301,6 +338,8 @@ export function runCurriculumExperiment({
     },
     gainHeatmap,
     pairedRows,
+    finalSessionRatings,
+    statistics,
     headline: {
       finalAccuracyGain: Number((adaptiveFinalAccuracy - fixedFinalAccuracy).toFixed(1)),
       finalRatingGain: Number((learningCurve.at(-1).adaptiveRating - learningCurve.at(-1).fixedRating).toFixed(1)),
@@ -319,7 +358,11 @@ export function experimentCsv(experiment) {
     'fixedCorrect',
     'adaptiveCorrect',
     'fixedConfidence',
-    'adaptiveConfidence'
+    'adaptiveConfidence',
+    'fixedBrier',
+    'adaptiveBrier',
+    'fixedFinalRating',
+    'adaptiveFinalRating'
   ];
   const rows = [];
   const rng = experiment.pairedRows || [];
@@ -331,7 +374,11 @@ export function experimentCsv(experiment) {
     row.fixedCorrect,
     row.adaptiveCorrect,
     row.fixedConfidence,
-    row.adaptiveConfidence
+    row.adaptiveConfidence,
+    row.fixedBrier,
+    row.adaptiveBrier,
+    row.fixedFinalRating,
+    row.adaptiveFinalRating
   ].join(',')));
   return [header.join(','), ...rows].join('\n');
 }
