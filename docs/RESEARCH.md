@@ -116,6 +116,22 @@ The next scenario is selected using a lightweight contextual exploration/exploit
 Reference:
 https://pmc.ncbi.nlm.nih.gov/articles/PMC13030155/
 
+
+### 10. Causal decision explainability and counterfactuals
+
+The prototype now computes an evidence-level causal trace using only the information visible to the trainee at decision time.
+
+For each selected route report, Sentinel recomputes the fused state after removing that report. The resulting change in fused probability, sufficiency, label and abstention state is treated as the report's **decision leverage**. The system also evaluates unselected route reports as one-step additions to identify available evidence that could materially change the current claim.
+
+This produces two distinct questions for AAR:
+
+1. **Why did the model lean here?** — which selected report had the largest marginal effect?
+2. **What could change this decision?** — which available report would alter the claim or abstention state if incorporated?
+
+The explainability trace is snapshotted into each decision record so later AAR/replay does not depend on the current evidence state. Hidden ground truth is deliberately excluded from the computation, preventing the explanation layer from leaking the answer during play.
+
+This is a local perturbation / counterfactual analysis rather than a claim of formal causal identification. Its role is auditability: expose sensitivity and evidence leverage so a trainee or instructor can inspect fragile decisions instead of treating the fused output as an opaque recommendation.
+
 ## Why AAR is not just a report generator
 
 Current defence training products already provide sophisticated AAR capabilities. Saab's 2026 A3R platform, for example, combines training data from structured and unstructured sources and produces AI-assisted insights. Hadean likewise provides AI AAR, replay, course-of-action comparison and multi-domain simulation.
