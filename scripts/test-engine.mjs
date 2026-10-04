@@ -81,7 +81,7 @@ const droppedIgnored = subjectiveLogicFuse([
   {...report('BLOCKED', 95, 95, 'B'), state: 'dropped'}
 ], 1);
 assert.equal(droppedIgnored.label, 'CLEAR');
-assert.equal(droppedIgnored.abstain, false);
+assert.equal(droppedIgnored.abstain, true);
 
 const scaled = temperatureScaleDistribution([
   {label:'CLEAR', probability:0.8},
