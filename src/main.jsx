@@ -9,6 +9,7 @@ import { explainDecision } from './engine/decisionExplainability';
 import { generateScenario } from './engine/scenarioGenerator';
 import { runCurriculumExperiment } from './engine/experimentLab';
 import { runAblationStudy } from './engine/ablationLab';
+import { runDegradationSurfaceStudy } from './engine/degradationSurfaceLab';
 import ExperimentPanel from './components/ExperimentPanel';
 
 const SCENARIOS = {
@@ -109,6 +110,7 @@ function App() {
   const [resilienceRun, setResilienceRun] = useState(1);
   const [experimentRun, setExperimentRun] = useState(1);
   const [ablationRun, setAblationRun] = useState(1);
+  const [degradationRun, setDegradationRun] = useState(1);
   const experiment = useMemo(function() {
     return runCurriculumExperiment({
       sessions: 32,
@@ -119,6 +121,9 @@ function App() {
   const ablationStudy = useMemo(function() {
     return runAblationStudy({ runs: 240, seed: 20261008 + ablationRun - 1 });
   }, [ablationRun]);
+  const degradationSurface = useMemo(function() {
+    return runDegradationSurfaceStudy({ casesPerCell: 16, seed: 20261009 + degradationRun - 1 });
+  }, [degradationRun]);
   const resilience = useMemo(function() {
     return runResilienceBenchmark({ runsPerAttack: 40, seed: 20261004 + resilienceRun - 1 });
   }, [resilienceRun]);
@@ -536,7 +541,7 @@ function App() {
         {activeTab === 'team' && <TeamPanel members={members} activeSeat={activeSeat} joinSeat={joinSeat} messages={messages} messageText={messageText} setMessageText={setMessageText} sendMessage={sendMessage} degraded={teamChannelDegraded}/>}
         {activeTab === 'benchmark' && <BenchmarkPanel benchmark={benchmark} summary={benchmarkSummary} onRerun={() => setBenchmarkRun(function(v){ return v + 1; })}/>}
         {activeTab === 'resilience' && <ResiliencePanel resilience={resilience} onRerun={() => setResilienceRun(function(v){ return v + 1; })}/>}
-        {activeTab === 'experiment' && <ExperimentPanel experiment={experiment} onRerun={() => setExperimentRun(function(v){ return v + 1; })} ablationStudy={ablationStudy} onAblationRerun={() => setAblationRun(function(v){ return v + 1; })}/>}
+        {activeTab === 'experiment' && <ExperimentPanel experiment={experiment} onRerun={() => setExperimentRun(function(v){ return v + 1; })} ablationStudy={ablationStudy} onAblationRerun={() => setAblationRun(function(v){ return v + 1; })} degradationSurface={degradationSurface} onDegradationRerun={() => setDegradationRun(function(v){ return v + 1; })}/>}
          {activeTab === 'viz' && <VisualizationPanel reports={reports} events={events} decisions={decisions} netHealth={netHealth} latency={latency} dropout={dropout} conflict={conflict} fusedRoute={fusedRoute} onExportBundle={exportVisualizationBundle}/>} 
         {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} setNetHealth={setNetHealth} latency={latency} setLatency={setLatency} dropout={dropout} setDropout={setDropout} conflict={conflict} setConflict={setConflict} freshnessDecay={freshnessDecay} setFreshnessDecay={setFreshnessDecay} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise}/>}
         {activeTab === 'aar' && <AARPanel decisions={decisions} events={events} reports={reports} metrics={metrics} focus={focus} replayAt={replayAt} setReplayAt={setReplayAt} elapsed={elapsed} exportAAR={exportAAR} integrityIndex={integrityIndex} confidenceGap={confidenceGap} fusedRoute={fusedRoute} ledgerFingerprint={ledgerFingerprint}/>}
