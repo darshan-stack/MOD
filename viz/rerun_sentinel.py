@@ -55,7 +55,9 @@ def main() -> None:
 
     bundle = load_bundle(Path(args.bundle))
 
-    rr.init("sentinel_grid_omega", spawn=not args.web_viewer)
+    rr.init("sentinel_grid_omega", spawn=not args.web_viewer and not args.save)
+    if args.save:
+        rr.save(args.save)
     if args.web_viewer:
         rr.serve_web()
 
@@ -150,7 +152,6 @@ def main() -> None:
     )
 
     if args.save:
-        rr.save(args.save)
         print(f"Saved Rerun recording: {args.save}")
     else:
         print("Rerun viewer ready. Drag/zoom the 3D scene and scrub the exercise timeline.")
