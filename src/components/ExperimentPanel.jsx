@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { experimentCsv } from '../engine/experimentLab.js';
+import { ablationCsv } from '../engine/ablationLab.js';
 
 function PlotlyFigure({ data, layout, config }) {
   const ref = useRef(null);
@@ -43,7 +44,52 @@ const formatEffect = function(row) {
     : Number(row.effectSize.value).toFixed(3);
 };
 
-export default function ExperimentPanel({ experiment, onRerun }) {
+function AblationPanel({ study, onRerun }) {
+  const variants = study?.variants || [];
+  return <div className="ablation-panel">
+    <div className="experiment-stats-head">
+      <div>
+        <div className="eyebrow">COMPONENT ABLATION · SAME CASE STREAM</div>
+        <h3>Which mechanisms matter?</h3>
+      </div>
+      <div className="export-actions">
+        <button className="ghost-btn" onClick={function() {
+          const blob = new Blob([ablationCsv(study)], { type: 'text/csv;charset=utf-8' });
+          downloadBlob(blob, 'sentinel-grid-ablation.csv');
+        }}>EXPORT CSV</button>
+        <button className="primary-btn" onClick={onRerun}>RERUN ×{study?.runs || 0}</button>
+      </div>
+    </div>
+
+    <div className="ablation-hero">
+      <div><small>FULL SENTINEL ACCURACY</small><strong>{study?.headline?.productionAccuracy ?? '—'}%</strong><span>Production configuration</span></div>
+      <div><small>LARGEST ACCURACY DROP</small><strong>{study?.headline?.largestAccuracyDrop > 0 ? '+' : ''}{study?.headline?.largestAccuracyDrop ?? '—'} pts</strong><span>{study?.headline?.mostAccuracySensitive || '—'}</span></div>
+      <div><small>FALSE-CONFIDENCE SENSITIVITY</small><strong>{study?.headline?.largestFalseConfidenceChange > 0 ? '+' : ''}{study?.headline?.largestFalseConfidenceChange ?? '—'} pts</strong><span>{study?.headline?.mostFalseConfidenceSensitive || '—'}</span></div>
+    </div>
+
+    <div className="ablation-table">
+      <div className="ablation-row ablation-head"><span>VARIANT</span><span>ACCURACY</span><span>Δ ACC</span><span>FALSE CONF</span><span>Δ FC</span><span>ABSTAIN</span><span>BRIER</span></div>
+      {variants.map(function(row) {
+        const full = row.key === 'FULL';
+        return <div className="ablation-row" key={row.key}>
+          <span><strong>{row.label}</strong><small>{row.description}</small></span>
+          <span className={full ? 'stat-positive' : ''}>{row.accuracy}%</span>
+          <span className={row.accuracyDeltaVsFull >= 0 ? 'stat-positive' : 'stat-negative'}>{row.accuracyDeltaVsFull >= 0 ? '+' : ''}{row.accuracyDeltaVsFull} pts</span>
+          <span>{row.falseConfidenceRate}%</span>
+          <span className={row.falseConfidenceDeltaVsFull <= 0 ? 'stat-positive' : 'stat-negative'}>{row.falseConfidenceDeltaVsFull >= 0 ? '+' : ''}{row.falseConfidenceDeltaVsFull} pts</span>
+          <span>{row.abstentionRate}%</span>
+          <span>{row.brier}</span>
+        </div>;
+      })}
+    </div>
+
+    <div className="ablation-note">
+      <strong>How to read this.</strong> Every variant receives the same procedurally generated scenario stream. The FULL row is the production decision path. The other rows remove or constrain one mechanism, so a large delta is evidence that the simulator is sensitive to that mechanism. This is an ablation/sensitivity study, not a human-subject causal claim.
+    </div>
+  </div>;
+}
+
+export default function ExperimentPanel({ experiment, onRerun, ablationStudy, onAblationRerun }) {
   const figureBase = useMemo(() => ({
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(8,19,27,.55)',
@@ -234,6 +280,8 @@ export default function ExperimentPanel({ experiment, onRerun }) {
           These intervals quantify uncertainty in the synthetic simulator and do not establish human-learning effects.
         </div>
       </div>
+
+      <AblationPanel study={ablationStudy} onRerun={onAblationRerun} />
 
       <div className="experiment-note"><strong>Interpretation.</strong> This is a controlled synthetic experiment. The virtual trainee is simulated, so the plots do not establish real human-learning effects. The confidence bands, bootstrap intervals, paired randomization tests and effect sizes are included to make the simulator's behavior auditable rather than to substitute for a participant study.</div>
     </section>
