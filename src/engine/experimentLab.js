@@ -300,6 +300,7 @@ export function runCurriculumExperiment({
       adaptive: adaptiveSummary.calibration
     },
     gainHeatmap,
+    pairedRows,
     headline: {
       finalAccuracyGain: Number((adaptiveFinalAccuracy - fixedFinalAccuracy).toFixed(1)),
       finalRatingGain: Number((learningCurve.at(-1).adaptiveRating - learningCurve.at(-1).fixedRating).toFixed(1)),
@@ -321,7 +322,7 @@ export function experimentCsv(experiment) {
     'adaptiveConfidence'
   ];
   const rows = [];
-  const rng = experiment.__rows || [];
+  const rng = experiment.pairedRows || [];
   rng.forEach(row => rows.push([
     row.session,
     row.round,
