@@ -118,7 +118,7 @@ export function validateScenario(scenario, dsl = SCENARIO_DSL) {
   if (!Array.isArray(scenario.reports) || scenario.reports.length < dsl.constraints.minReports || scenario.reports.length > dsl.constraints.maxReports) {
     errors.push('report count outside DSL constraints');
   }
-  const routeReports = (scenario.reports || []).filter(r => r.topic === 'route_echo');
+  const routeReports = (scenario.reports || []).filter(r => r.topic && r.topic.startsWith('route_'));
   const independent = new Set(routeReports.map(r => r.source));
   if (routeReports.length < dsl.constraints.minRouteReports) errors.push('insufficient route reports');
   if (independent.size < dsl.constraints.minIndependentRouteSources) errors.push('insufficient independent route sources');
