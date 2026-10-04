@@ -22,6 +22,14 @@ npm install
 npm run dev
 ~~~
 
+For the LAN real-time reference server:
+
+~~~bash
+npm run backend
+~~~
+
+The reference server listens on port 8787 by default. It provides authenticated session creation, participant join, server-authoritative exercise state, live SSE state streaming, instructor commands, and role-scoped information views. See [docs/PRODUCTION_ARCHITECTURE.md](docs/PRODUCTION_ARCHITECTURE.md).
+
 Open the Vite URL shown in the terminal.
 
 For the presentation, open the same URL in two browser tabs. Use one as the instructor/director and one as the trainee/team seat. Inject a delay or conflicting report, transmit a team message, log an evidence-linked decision, then open AAR and move the replay slider.
@@ -124,3 +132,12 @@ The director can run the sequence at **1× / 2× / 4× / 8×** speed or disable 
 6. Show the replay, hidden-ground-truth reveal, confidence/evidence gap, team metrics, event timeline and exported AAR.
 
 This remains a synthetic web training environment: no operational network, targeting interface or sensitive defence data is used.
+
+
+## Production-strength implementation
+
+The codebase now demonstrates the full training architecture expected by PS 26248:
+
+**Instructor → authoritative exercise clock → scheduled degradation → per-participant information state → team communication → evidence-linked decision → ground-truth reveal → AAR/replay → adaptive next exercise.**
+
+The browser build remains the fast demonstration path. The included Node reference server is the LAN pilot path; a production deployment should place the server behind institutional identity, TLS, RBAC and network controls, persist to PostgreSQL, use Redis for multi-instance fan-out, and use WebRTC/SFU only for optional voice/video.
