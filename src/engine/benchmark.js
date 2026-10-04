@@ -216,7 +216,7 @@ function matchedCoverageAccuracy(samples = [], targetCoverage = 1) {
     .filter(sample => !sample.abstain)
     .sort((a, b) => b.confidence - a.confidence);
   if (!ranked.length) return null;
-  const count = Math.max(1, Math.min(ranked.length, Math.round(ranked.length * clamp(targetCoverage))));
+  const count = Math.max(1, Math.min(ranked.length, Math.round(samples.length * clamp(targetCoverage))));
   const correct = ranked.slice(0, count).filter(x => x.correct).length;
   return Number((correct / count * 100).toFixed(1));
 }
