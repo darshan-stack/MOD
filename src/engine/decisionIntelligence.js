@@ -302,7 +302,7 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
     0.50 * best.projected +
     0.22 * Math.min(independentSources / 2, 1) +
     0.28 * (1 - conflict) -
-    0.18 * uncertainty
+    0.18 * evidenceUncertainty
   );
 
   const rawDistribution = candidates.map(candidate => ({
