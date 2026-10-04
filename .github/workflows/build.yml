@@ -24,8 +24,8 @@ jobs:
           cache-dependency-path: viz/requirements.txt
 
       - run: npm ci
-      - run: npm test
-      - run: python3 -m py_compile viz/rerun_sentinel.py viz/open3d_sentinel.py
+      - run: npm run verify
+      - run: npm run viz:check
 
       - name: Smoke-test Rerun recording export
         run: |
@@ -89,4 +89,3 @@ jobs:
           python viz/rerun_sentinel.py /tmp/sentinel-grid-viz.json --save /tmp/sentinel-grid.rrd
           test -s /tmp/sentinel-grid.rrd
 
-      - run: npm run build
