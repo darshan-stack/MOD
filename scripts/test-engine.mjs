@@ -34,6 +34,7 @@ assert.equal(agreeable.label, 'CLEAR');
 assert(agreeable.belief > 50);
 assert(agreeable.uncertainty < 35);
 assert(Math.abs(agreeable.distribution.reduce((sum, x) => sum + x.probability, 0) - 1) < 0.00001);
+assert(agreeable.uncertainty + agreeable.belief <= 100);
 assert(agreeable.confidence <= agreeable.rawConfidence);
 
 const conflicting = subjectiveLogicFuse([
@@ -42,6 +43,8 @@ const conflicting = subjectiveLogicFuse([
 ], 1);
 assert(conflicting.uncertainty >= 0);
 assert(conflicting.conflict > 0);
+assert(Math.abs(conflicting.distribution.reduce((sum, x) => sum + x.probability, 0) - 1) < 0.00001);
+
 
 // Consensus fusion preserves opinion mass.
 const a = opinionFromReport(report('CLEAR', 90, 98, 'A'), 'CLEAR');
@@ -66,6 +69,20 @@ const history2 = updateSourceHistory(history1, report('BLOCKED', 90, 95, 'A'), f
 assert.equal(history2.A.supported, 1);
 assert.equal(history2.A.contradicted, 1);
 assert(sourceReliability(report('CLEAR', 90, 95, 'A'), history2) > 0);
+
+const droppedOnly = subjectiveLogicFuse([
+  {...report('CLEAR', 90, 95, 'A'), state: 'dropped'}
+], 1);
+assert.equal(droppedOnly.label, 'UNKNOWN');
+assert.equal(droppedOnly.abstain, true);
+
+const droppedIgnored = subjectiveLogicFuse([
+  report('CLEAR', 90, 95, 'A'),
+  {...report('BLOCKED', 95, 95, 'B'), state: 'dropped'}
+], 1);
+assert.equal(droppedIgnored.label, 'CLEAR');
+assert.equal(droppedIgnored.abstain, false);
+
 const scaled = temperatureScaleDistribution([
   {label:'CLEAR', probability:0.8},
   {label:'BLOCKED', probability:0.1},
