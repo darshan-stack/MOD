@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { experimentCsv } from '../engine/experimentLab.js';
 import { ablationCsv } from '../engine/ablationLab.js';
+import { degradationSurfaceCsv } from '../engine/degradationSurfaceLab.js';
 
 function PlotlyFigure({ data, layout, config }) {
   const ref = useRef(null);
@@ -144,7 +145,157 @@ function AblationPanel({ study, onRerun }) {
   </div>;
 }
 
-export default function ExperimentPanel({ experiment, onRerun, ablationStudy, onAblationRerun }) {
+
+function DegradationSurfacePanel({ study, onRerun }) {
+  const levelsX = study?.networkHealthLevels || [];
+  const levelsY = study?.conflictLevels || [];
+  const matrices = study?.matrices || {};
+
+  const phaseText = (matrices.phaseLabel || []).map(row => row.map(value => value || '—'));
+  const phaseTicks = [
+    { value: 0, label: 'COMMIT' },
+    { value: 1, label: 'UNCERTAIN' },
+    { value: 2, label: 'ABSTAIN' }
+  ];
+
+  const heatLayout = function(title, xTitle, yTitle) {
+    return {
+      margin: { l: 55, r: 28, t: 38, b: 48 },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(8,19,27,.55)',
+      font: { family: 'Manrope', color: '#91a8b3', size: 9 },
+      title: { text: title, font: { size: 11 } },
+      xaxis: { title: xTitle, tickfont: { family: 'DM Mono', size: 8 }, gridcolor: '#19323e' },
+      yaxis: { title: yTitle, tickfont: { family: 'DM Mono', size: 8 }, gridcolor: '#19323e' }
+    };
+  };
+
+  return <div className="surface-panel">
+    <div className="experiment-stats-head">
+      <div>
+        <div className="eyebrow">DEGRADATION RESPONSE SURFACE · CONTROLLED SWEEP</div>
+        <h3>When certainty should give way to abstention</h3>
+      </div>
+      <div className="export-actions">
+        <button className="ghost-btn" onClick={function() {
+          const blob = new Blob([JSON.stringify(study, null, 2)], { type: 'application/json' });
+          downloadBlob(blob, 'sentinel-grid-degradation-surface.json');
+        }}>JSON</button>
+        <button className="ghost-btn" onClick={function() {
+          const blob = new Blob([degradationSurfaceCsv(study)], { type: 'text/csv;charset=utf-8' });
+          downloadBlob(blob, 'sentinel-grid-degradation-surface.csv');
+        }}>CSV</button>
+        <button className="primary-btn" onClick={onRerun}>RERUN ×{study?.cells?.length || 0}</button>
+      </div>
+    </div>
+
+    <div className="surface-hero">
+      <div><small>BASELINE CONFIDENCE</small><strong>{study?.headline?.baselineCommitProbability ?? '—'}%</strong><span>High communication quality / low conflict</span></div>
+      <div><small>STRESS UNCERTAINTY</small><strong>{study?.headline?.stressUncertainty ?? '—'}%</strong><span>Low quality / high contradiction</span></div>
+      <div><small>STRESS ABSTENTION</small><strong>{study?.headline?.stressAbstentionRate ?? '—'}%</strong><span>Production output at stress corner</span></div>
+      <div><small>MAX FC DELTA</small><strong>{study?.headline?.maxFalseConfidenceDelta > 0 ? '+' : ''}{study?.headline?.maxFalseConfidenceDelta ?? '—'} pts</strong><span>Sentinel − confidence-only</span></div>
+    </div>
+
+    <div className="surface-note"><strong>Read the surface.</strong> X-axis is network health; Y-axis is contradiction pressure. The same seeded base cases are stressed at every cell, so the plots isolate how the decision engine responds as information quality deteriorates.</div>
+
+    <div className="surface-viz-grid">
+      <div className="experiment-chart-card">
+        <div className="experiment-chart-head"><div><div className="eyebrow">SURFACE A</div><h3>Committed probability</h3></div><span>Mean winning probability</span></div>
+        <PlotlyFigure
+          data={[{
+            z: matrices.probability,
+            x: levelsX,
+            y: levelsY,
+            type: 'heatmap',
+            colorbar: { title: '%', tickfont: { size: 8 }, titlefont: { size: 8 } },
+            hovertemplate: 'Health %{x}<br>Conflict %{y}<br>Probability %{z:.1f}%<extra></extra>'
+          }]}
+          layout={heatLayout('Probability surface', 'Network health (%)', 'Conflict pressure (%)')}
+        />
+      </div>
+
+      <div className="experiment-chart-card">
+        <div className="experiment-chart-head"><div><div className="eyebrow">SURFACE B</div><h3>Epistemic uncertainty</h3></div><span>Higher = less committed evidence</span></div>
+        <PlotlyFigure
+          data={[{
+            z: matrices.uncertainty,
+            x: levelsX,
+            y: levelsY,
+            type: 'heatmap',
+            colorbar: { title: '%', tickfont: { size: 8 }, titlefont: { size: 8 } },
+            hovertemplate: 'Health %{x}<br>Conflict %{y}<br>Uncertainty %{z:.1f}%<extra></extra>'
+          }]}
+          layout={heatLayout('Uncertainty surface', 'Network health (%)', 'Conflict pressure (%)')}
+        />
+      </div>
+
+      <div className="experiment-chart-card">
+        <div className="experiment-chart-head"><div><div className="eyebrow">SURFACE C</div><h3>Decision phase boundary</h3></div><span>0 commit · 1 uncertain · 2 abstain</span></div>
+        <PlotlyFigure
+          data={[{
+            z: matrices.phaseCode,
+            text: phaseText,
+            x: levelsX,
+            y: levelsY,
+            type: 'heatmap',
+            zmin: 0,
+            zmax: 2,
+            colorbar: {
+              title: 'Phase',
+              tickmode: 'array',
+              tickvals: phaseTicks.map(item => item.value),
+              ticktext: phaseTicks.map(item => item.label),
+              tickfont: { size: 8 },
+              titlefont: { size: 8 }
+            },
+            texttemplate: '%{text}',
+            hovertemplate: 'Health %{x}<br>Conflict %{y}<br>%{text}<extra></extra>'
+          }]}
+          layout={heatLayout('Commit → uncertainty → abstain', 'Network health (%)', 'Conflict pressure (%)')}
+        />
+      </div>
+
+      <div className="experiment-chart-card">
+        <div className="experiment-chart-head"><div><div className="eyebrow">SURFACE D</div><h3>False-confidence sensitivity</h3></div><span>Sentinel − confidence-only</span></div>
+        <PlotlyFigure
+          data={[{
+            z: matrices.falseConfidenceDelta,
+            x: levelsX,
+            y: levelsY,
+            type: 'heatmap',
+            zmid: 0,
+            colorbar: { title: 'pts', tickfont: { size: 8 }, titlefont: { size: 8 } },
+            hovertemplate: 'Health %{x}<br>Conflict %{y}<br>Δ false confidence %{z:.1f} pts<extra></extra>'
+          }]}
+          layout={heatLayout('Calibration / safety delta', 'Network health (%)', 'Conflict pressure (%)')}
+        />
+      </div>
+    </div>
+
+    <div className="surface-table">
+      <div className="surface-table-head"><span>Grid</span><span>Probability</span><span>Uncertainty</span><span>Abstain</span><span>False conf.</span><span>Phase</span></div>
+      {(study?.cells || []).filter(function(cell) {
+        return cell.networkHealth === 100 ||
+          cell.networkHealth === 10 ||
+          cell.conflictPressure === 0 ||
+          cell.conflictPressure === 90;
+      }).slice(0, 28).map(function(cell) {
+        return <div className="surface-table-row" key={cell.networkHealth + '-' + cell.conflictPressure}>
+          <span><b>H{cell.networkHealth}</b> / C{cell.conflictPressure}</span>
+          <span>{cell.probability}%</span>
+          <span>{cell.uncertainty}%</span>
+          <span>{cell.abstentionRate}%</span>
+          <span>{cell.falseConfidenceRate}%</span>
+          <span className={'phase-badge phase-' + cell.phase.toLowerCase()}>{cell.phase}</span>
+        </div>;
+      })}
+    </div>
+
+    <div className="surface-note"><strong>Method boundary.</strong> The phase map is a visualization of the production fusion output, not an operational rule. Ground truth exists only inside the synthetic scorer after the decision is formed.</div>
+  </div>;
+}
+
+export default function ExperimentPanel({ experiment, onRerun, ablationStudy, onAblationRerun, degradationSurface, onDegradationRerun }) {
   const figureBase = useMemo(() => ({
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(8,19,27,.55)',
@@ -335,6 +486,8 @@ export default function ExperimentPanel({ experiment, onRerun, ablationStudy, on
           These intervals quantify uncertainty in the synthetic simulator and do not establish human-learning effects.
         </div>
       </div>
+
+      <DegradationSurfacePanel study={degradationSurface} onRerun={onDegradationRerun} />
 
       <AblationPanel study={ablationStudy} onRerun={onAblationRerun} />
 
