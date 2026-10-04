@@ -223,9 +223,11 @@ export function runAblationStudy({
   const worstAccuracy = [...methods]
     .filter(method => method.key !== 'FULL')
     .sort((a, b) => a.accuracyDeltaVsFull - b.accuracyDeltaVsFull)[0];
-  const safestFalseConfidence = [...methods]
+  const mostFalseConfidenceSensitive = [...methods]
     .filter(method => method.key !== 'FULL')
-    .sort((a, b) => a.falseConfidenceDeltaVsFull - b.falseConfidenceDeltaVsFull)[0];
+    .sort((a, b) =>
+      Math.abs(b.falseConfidenceDeltaVsFull) - Math.abs(a.falseConfidenceDeltaVsFull)
+    )[0];
 
   return {
     seed,
@@ -236,8 +238,8 @@ export function runAblationStudy({
       productionAccuracy: production.accuracy,
       mostAccuracySensitive: worstAccuracy?.key || null,
       largestAccuracyDrop: worstAccuracy?.accuracyDeltaVsFull ?? 0,
-      mostFalseConfidenceSensitive: safestFalseConfidence?.key || null,
-      largestFalseConfidenceChange: safestFalseConfidence?.falseConfidenceDeltaVsFull ?? 0
+      mostFalseConfidenceSensitive: mostFalseConfidenceSensitive?.key || null,
+      largestFalseConfidenceChange: mostFalseConfidenceSensitive?.falseConfidenceDeltaVsFull ?? 0
     },
     methodology: {
       sameGeneratedCaseStream: true,
