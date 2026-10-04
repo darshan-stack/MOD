@@ -642,3 +642,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
 .ablation-note{margin-top:10px;padding:10px 11px;border-left:2px solid #5b6a45;background:#111a16;color:#748c80;font:8px 'DM Mono';line-height:1.55}
 .ablation-note strong{color:#adc8bb}
 @media(max-width:900px){.ablation-hero{grid-template-columns:1fr}}
+
+
+.ablation-viz-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.ablation-viz-grid .experiment-chart-card{min-height:340px}
+@media(max-width:900px){.ablation-viz-grid{grid-template-columns:1fr}}
