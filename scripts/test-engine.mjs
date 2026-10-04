@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { runCurriculumExperiment, experimentCsv } from '../src/engine/experimentLab.js';
+import { runExperimentStatistics } from '../src/engine/statisticsLab.js';
 import { generateScenario, validateScenario, SCENARIO_DSL } from '../src/engine/scenarioGenerator.js';
 import { explainDecision } from '../src/engine/decisionExplainability.js';
 import { runResilienceBenchmark } from '../src/engine/resilienceLab.js';
@@ -124,6 +125,52 @@ assert.equal(
   benchmark.methods.sentinel.coverage
 );
 assert.equal(Object.keys(benchmark.byCondition).length, 4);
+
+
+// Statistical inference checks: paired, deterministic, and session-resampled.
+const experiment = runCurriculumExperiment({
+  sessions: 8,
+  roundsPerSession: 6,
+  seed: 20261007
+});
+assert.equal(experiment.totalCases, 96);
+assert.equal(experiment.pairedRows.length, 48);
+assert.equal(experiment.statistics.sample.sessions, 8);
+assert.equal(experiment.statistics.sample.roundsPerSession, 6);
+assert.equal(experiment.statistics.roundConfidence.length, 6);
+assert.equal(experiment.statistics.publicationTable.length, 5);
+
+const statsAgain = runExperimentStatistics(experiment.pairedRows, {
+  sessions: 8,
+  roundsPerSession: 6,
+  seed: 20261707,
+  bootstrapRepetitions: 250,
+  permutationRepetitions: 500
+});
+assert.deepEqual(statsAgain, runExperimentStatistics(experiment.pairedRows, {
+  sessions: 8,
+  roundsPerSession: 6,
+  seed: 20261707,
+  bootstrapRepetitions: 250,
+  permutationRepetitions: 500
+}));
+assert(Number.isFinite(experiment.statistics.comparisons.accuracy.difference));
+assert(experiment.statistics.comparisons.accuracy.confidenceInterval95.lower <= experiment.statistics.comparisons.accuracy.confidenceInterval95.upper);
+assert(experiment.statistics.comparisons.finalAccuracy.confidenceInterval95.lower <= experiment.statistics.comparisons.finalAccuracy.confidenceInterval95.upper);
+assert(experiment.statistics.comparisons.brier.confidenceInterval95.lower <= experiment.statistics.comparisons.brier.confidenceInterval95.upper);
+assert(experiment.statistics.comparisons.accuracy.pValueRandomization >= 0);
+assert(experiment.statistics.comparisons.accuracy.pValueRandomization <= 1);
+
+const csv = experimentCsv(experiment);
+assert(csv.split('\n').length === experiment.pairedRows.length + 1);
+assert(csv.includes('fixedBrier,adaptiveBrier,fixedFinalRating,adaptiveFinalRating'));
+
+console.log('statistical experiment checks: PASS');
+console.log(JSON.stringify({
+  accuracy: experiment.statistics.comparisons.accuracy,
+  finalAccuracy: experiment.statistics.comparisons.finalAccuracy,
+  brier: experiment.statistics.comparisons.brier
+}, null, 2));
 
 console.log('benchmark suite checks: PASS');
 console.log(JSON.stringify({
