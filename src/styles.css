@@ -545,3 +545,22 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
   .resilience-side{display:none}
   .resilience-hero{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Causal explainability */
+.explain-card{border:1px solid #203d4b;background:linear-gradient(180deg,#0c1a24,#0a151d);padding:14px;border-radius:6px;margin:15px 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
+.explain-card .panel-head{margin-bottom:8px}
+.explain-diagnosis{padding:8px 0 10px;line-height:1.5}
+.explain-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px}
+.explain-metrics>div{border:1px solid #1b3643;background:#0b1821;padding:8px;border-radius:5px}
+.explain-metrics small{display:block;font:8px 'DM Mono';color:#667f8b;letter-spacing:.8px}
+.explain-metrics strong{display:block;margin-top:4px;color:#bfe6e1;font-size:15px}
+.explain-block{border-top:1px solid #18303c;padding-top:10px;margin-top:10px}
+.explain-row{display:grid;grid-template-columns:minmax(0,1fr) 52px auto;gap:8px;align-items:center;padding:9px 0}
+.explain-row>div strong{display:block;font-size:9px;color:#c8dce1}
+.explain-row>div small{display:block;color:#718992;font:8px 'DM Mono';margin-top:3px}
+.explain-row>b{text-align:right;font:10px 'DM Mono';color:#9fded4}
+.explain-row>span{font:8px 'DM Mono';color:#76909b;text-align:right}
+@media (max-width:1280px){
+  .explain-row{grid-template-columns:1fr 50px}
+  .explain-row>span{grid-column:1/-1;text-align:left}
+}
