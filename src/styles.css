@@ -516,3 +516,32 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
 .rerun-host canvas{display:block}
 .rerun-embedded-card code{color:#9bc6c7}
 @media(max-width:900px){.rerun-toolbar{grid-template-columns:1fr 1fr}.rerun-url{grid-column:1/-1}.rerun-toolbar .primary-btn,.rerun-toolbar .ghost-btn{width:100%}.rerun-host{height:520px;min-height:520px}}
+
+/* Red-team resilience laboratory */
+.resilience-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px}
+.resilience-main,.resilience-side{border:1px solid #1c3847;background:linear-gradient(180deg,#0a1721,#08131b);border-radius:7px;box-shadow:var(--shadow);padding:20px}
+.resilience-side{align-self:start}
+.resilience-banner{display:flex;justify-content:space-between;align-items:center;gap:20px;border:1px solid #3a4b3e;background:linear-gradient(90deg,#11231f,#0c171d);padding:14px 16px;border-radius:6px;margin-bottom:16px}
+.resilience-banner strong{display:block;font-size:13px}.resilience-banner span{display:block;font:9px 'DM Mono';color:#758d97;margin-top:4px}
+.resilience-hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:22px}
+.resilience-hero>div{border:1px solid #203e4c;background:#0c1b25;padding:15px;border-radius:6px;min-height:104px}
+.resilience-hero small{display:block;font:8px 'DM Mono';letter-spacing:1px;color:#76909b}
+.resilience-hero strong{display:block;margin:8px 0 3px;font-size:22px;color:#c9efea;line-height:1.1}
+.resilience-hero span{font-size:9px;color:#718893}
+.resilience-table{border:1px solid #1d3a49;border-radius:6px;overflow:hidden}
+.resilience-row{display:grid;grid-template-columns:minmax(230px,2fr) repeat(5,minmax(78px,1fr));gap:0;align-items:center;min-height:58px;border-top:1px solid #18303c;padding:0 12px}
+.resilience-row:first-child{border-top:0}
+.resilience-row>span{padding:8px}
+.resilience-row>span:not(:first-child){font:10px 'DM Mono';text-align:center;color:#a9c0c9}
+.resilience-row strong{display:block;font-size:10px;color:#d5e4e8}
+.resilience-row small{display:block;font-size:9px;color:#6d8590;margin-top:3px;line-height:1.35}
+.resilience-head{background:#0d202a;min-height:42px}
+.resilience-head>span{font:8px 'DM Mono' !important;letter-spacing:.8px;color:#64808d !important}
+.resilience-good{color:var(--green) !important;font-weight:700}
+.resilience-note{margin-top:14px;border:1px solid #1d3948;background:#0b1821;padding:13px 14px;border-radius:6px;color:#75909b;font-size:10px;line-height:1.55}
+.resilience-note strong{color:#b9d0d7}
+@media (max-width:1280px){
+  .resilience-layout{grid-template-columns:1fr}
+  .resilience-side{display:none}
+  .resilience-hero{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
