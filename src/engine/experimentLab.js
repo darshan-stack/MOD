@@ -160,7 +160,7 @@ export function runCurriculumExperiment({
       });
 
       const fixedReports = fixedScenario.reports.filter(r => r.topic && r.topic.startsWith('route_'));
-      const adaptiveReports = adaptiveScenario.reports.filter(r => r.topic === 'route_echo');
+      const adaptiveReports = adaptiveScenario.reports.filter(r => r.topic && r.topic.startsWith('route_'));
       const fixedFusion = robustFuse(fixedReports, 1 - fixedScenario.comms / 100, {});
       const adaptiveFusion = robustFuse(adaptiveReports, 1 - adaptiveScenario.comms / 100, {});
 
