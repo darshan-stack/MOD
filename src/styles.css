@@ -647,3 +647,106 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
 .ablation-viz-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
 .ablation-viz-grid .experiment-chart-card{min-height:340px}
 @media(max-width:900px){.ablation-viz-grid{grid-template-columns:1fr}}
+
+
+/* Degradation response surface lab */
+.surface-panel {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #193641;
+  background: linear-gradient(180deg, rgba(11, 26, 36, .94), rgba(6, 16, 23, .96));
+}
+.surface-hero {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.surface-hero > div {
+  min-height: 92px;
+  padding: 12px 14px;
+  border: 1px solid #183441;
+  background: rgba(7, 18, 26, .78);
+}
+.surface-hero small {
+  display: block;
+  font: 700 9px/1.2 "DM Mono", monospace;
+  letter-spacing: .12em;
+  color: #78929d;
+}
+.surface-hero strong {
+  display: block;
+  margin: 7px 0 3px;
+  font: 700 24px/1 "DM Mono", monospace;
+  color: #d5e8ef;
+}
+.surface-hero span {
+  color: #7c959f;
+  font-size: 10px;
+}
+.surface-note {
+  padding: 11px 13px;
+  border-left: 2px solid #2a7084;
+  background: rgba(14, 32, 42, .46);
+  color: #8ca5af;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.surface-note + .surface-note {
+  margin-top: 12px;
+}
+.surface-viz-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.surface-viz-grid .experiment-plot {
+  height: 310px;
+}
+.surface-table {
+  margin-top: 12px;
+  border: 1px solid #183440;
+  overflow: hidden;
+}
+.surface-table-head,
+.surface-table-row {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(5, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 9px 11px;
+  font: 10px/1.25 "DM Mono", monospace;
+}
+.surface-table-head {
+  color: #77919c;
+  background: #0a1820;
+  border-bottom: 1px solid #193541;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.surface-table-row {
+  color: #a6bac2;
+  border-bottom: 1px solid #122b35;
+}
+.surface-table-row:last-child {
+  border-bottom: 0;
+}
+.surface-table-row b {
+  color: #cfe0e6;
+}
+.phase-badge {
+  justify-self: start;
+  padding: 4px 7px;
+  border: 1px solid #27434e;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.phase-commit { color: #9fcdb9; }
+.phase-uncertain { color: #d6b67a; }
+.phase-abstain { color: #d18c8c; }
+
+@media (max-width: 1280px) {
+  .surface-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .surface-viz-grid { grid-template-columns: 1fr; }
+}
