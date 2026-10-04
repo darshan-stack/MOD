@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { runCurriculumExperiment, experimentCsv } from '../src/engine/experimentLab.js';
 import { runExperimentStatistics } from '../src/engine/statisticsLab.js';
 import { runAblationStudy, ablationCsv } from '../src/engine/ablationLab.js';
+import { runDegradationSurfaceStudy, degradationSurfaceCsv } from '../src/engine/degradationSurfaceLab.js';
 import { generateScenario, validateScenario, SCENARIO_DSL } from '../src/engine/scenarioGenerator.js';
 import { explainDecision } from '../src/engine/decisionExplainability.js';
 import { runResilienceBenchmark } from '../src/engine/resilienceLab.js';
@@ -177,6 +178,41 @@ for (const seed of [1, 17, 20261005, 20261007, 429496729]) {
   assert(new Set(routeEvidence.map(r => r.source)).size >= SCENARIO_DSL.constraints.minIndependentRouteSources);
 }
 
+
+const degradationSurface = runDegradationSurfaceStudy({
+  networkHealthLevels: [20, 60, 100],
+  conflictLevels: [0, 45, 90],
+  casesPerCell: 8,
+  seed: 20261009
+});
+assert.equal(degradationSurface.cells.length, 9);
+assert.equal(degradationSurface.matrices.probability.length, 3);
+assert.equal(degradationSurface.matrices.probability[0].length, 3);
+assert.equal(degradationSurface.cells[0].cases, 8);
+assert(degradationSurface.cells.every(cell =>
+  Number.isFinite(cell.probability) &&
+  Number.isFinite(cell.uncertainty) &&
+  Number.isFinite(cell.abstentionRate) &&
+  ['COMMIT', 'UNCERTAIN', 'ABSTAIN'].includes(cell.phase)
+));
+assert.equal(degradationSurface.methodology.fixedBaseCaseStream, true);
+assert.equal(
+  degradationSurfaceCsv(degradationSurface).split('\n').length,
+  degradationSurface.cells.length + 1
+);
+const degradationAgain = runDegradationSurfaceStudy({
+  networkHealthLevels: [20, 60, 100],
+  conflictLevels: [0, 45, 90],
+  casesPerCell: 8,
+  seed: 20261009
+});
+assert.deepEqual(degradationAgain, degradationSurface);
+
+console.log('degradation response surface checks: PASS');
+console.log(JSON.stringify({
+  baseline: degradationSurface.cells.find(cell => cell.networkHealth === 100 && cell.conflictPressure === 0),
+  stress: degradationSurface.cells.find(cell => cell.networkHealth === 20 && cell.conflictPressure === 90)
+}, null, 2));
 
 const ablation = runAblationStudy({ runs: 24, seed: 20261008 });
 assert.equal(ablation.runs, 24);
