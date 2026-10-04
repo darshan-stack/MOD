@@ -163,3 +163,7 @@ These statistics describe the behavior of the synthetic simulator. They are not 
 The experiment lab includes a deterministic component-sensitivity study over the same procedural case stream. The FULL configuration uses the production Sentinel Ω decision path. Comparison variants constrain one mechanism at a time so the team can inspect how accuracy, false-confidence exposure, abstention and Brier score move.
 
 The ablation study is intentionally narrower than the benchmark suite: it is a mechanism-level sensitivity analysis, not a claim that any single component has been causally proven responsible for human performance. Results remain synthetic and reproducible from the displayed seed.
+
+
+### Degradation Response Surface Lab
+A deterministic synthetic sweep varies network health and contradiction pressure over the same base case stream, producing response surfaces for committed probability, epistemic uncertainty, abstention phase, and false-confidence sensitivity. This is simulator-only evidence.
