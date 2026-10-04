@@ -25,6 +25,8 @@ jobs:
 
       - run: npm ci
       - run: npm run verify
+      - name: Install Open3D headless runtime libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgomp1
       - run: python -m pip install --disable-pip-version-check -r viz/requirements.txt
       - run: npm run viz:check
 
