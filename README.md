@@ -84,7 +84,7 @@ The UI includes an optional Visualization Lab using open-source browser librarie
 - **Cytoscape.js 3.34.3** — interactive graph visualization for the synthetic communication/evidence network. MIT licensed. ([GitHub](https://github.com/cytoscape/cytoscape.js))
 - **Apache ECharts 6.1.0** — interactive multi-series evidence/confidence analytics. Apache-2.0 licensed. ([GitHub](https://github.com/apache/echarts))
 - **vis-timeline 8.5.4** — zoomable/pannable event and decision timeline. Apache-2.0 OR MIT licensed.
-- **Plotly.js 4.1.1** — interactive scientific plots for learning curves, calibration diagrams, difficulty-response curves and heatmaps. MIT licensed. ([GitHub](https://github.com/visjs/vis-timeline))
+- **Plotly.js 4.1.1** — interactive scientific plots for learning curves, calibration diagrams, difficulty-response curves, heatmaps and ablation sensitivity charts. MIT licensed. ([GitHub](https://github.com/plotly/plotly.js))
 
 - **Rerun 0.38.1** — multimodal time-aware 3D robotics viewer for point clouds, trajectories, text and time-series replay. MIT OR Apache-2.0. ([GitHub](https://github.com/rerun-io/rerun))
 - **Open3D 0.20.0** — 3D point-cloud, geometry and rendering companion viewer. MIT licensed. ([GitHub](https://github.com/isl-org/Open3D))
@@ -125,9 +125,9 @@ See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, de
 11. Open **Red-team Resilience** to replay the five deterministic attack classes and show how often the system stops an adversarial information state by correcting or abstaining.
 12. Open the **Statistical Inference** panel inside the experiment lab to show 95% bootstrap intervals, paired sign-randomization p-values and effect sizes.
 13. Use the experiment JSON/CSV exports as a reproducible lab record; the statistical layer treats each virtual trainee/session as the resampling unit.
-14. Review the **Component Ablation** section to compare the full production path against freshness-fixed, learned-reliability-disabled, abstention-disabled and confidence-only variants.
-14. In **Exercise Director**, use **GENERATE NEXT EXERCISE** to create a seeded procedural scenario from the Scenario DSL; inspect the generated evidence count, network degradation and event stream.
-15. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views. For a saved Rerun recording, use `npm run viz:rerun -- --save artifacts/sentinel-grid.rrd`.
+14. Review the **Component Ablation** section to compare the full production path against freshness-fixed, learned-reliability-disabled, abstention-disabled and confidence-only variants, with Plotly sensitivity charts.
+15. In **Exercise Director**, use **GENERATE NEXT EXERCISE** to create a seeded procedural scenario from the Scenario DSL; inspect the generated evidence count, network degradation and event stream.
+16. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views. For a saved Rerun recording, use `npm run viz:rerun -- --save artifacts/sentinel-grid.rrd`.
 
 The system is intentionally synthetic and software-only. It is not connected to weapons, operational networks or real-world targeting systems.
 
