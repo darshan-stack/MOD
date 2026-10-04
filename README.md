@@ -99,6 +99,7 @@ The decision-intelligence kernel uses:
 - lightweight contextual exploration/exploitation for adaptive exercise selection;
 - SHA-256 exercise fingerprinting for tamper-evident AAR integrity checks.
 - Deterministic benchmark laboratory comparing Sentinel Ω against confidence-only and confidence×freshness baselines under controlled degradation.
+- Red-team resilience laboratory that deterministically attacks the information layer with stale deception, conflict bursts, true-source dropout, duplicate-source echoes and delayed contradictions, measuring false-confidence exposure and explicit abstention.
 
 See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, design rationale and citations.
 
@@ -114,6 +115,11 @@ See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, de
 8. Show the ground-truth reveal, confidence gap, information-integrity score and audit fingerprint.
 9. In Director, press **GENERATE NEXT EXERCISE** to demonstrate the adaptive training loop.
 10. Open **Benchmark Lab** to reproduce the controlled 400-case comparison and inspect accuracy, selective accuracy, false-confidence, Brier, ECE and abstention metrics.
-11. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views. For a saved Rerun recording, use `npm run viz:rerun -- --save artifacts/sentinel-grid.rrd`.
+11. Open **Red-team Resilience** to replay the five deterministic attack classes and show how often the system stops an adversarial information state by correcting or abstaining.
+12. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views. For a saved Rerun recording, use `npm run viz:rerun -- --save artifacts/sentinel-grid.rrd`.
 
 The system is intentionally synthetic and software-only. It is not connected to weapons, operational networks or real-world targeting systems.
+
+## Red-team validation
+
+The resilience harness is designed as a falsification layer rather than a performance showcase. Each run starts from seeded synthetic reports, applies one attack family, and evaluates both a confidence-only aggregation baseline and Sentinel Ω. The key safety-oriented metric is **false confidence**: a wrong high-confidence commitment. An attack is considered “stopped” when Sentinel produces the correct class or abstains instead of committing to the wrong high-confidence class.
