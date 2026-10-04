@@ -212,3 +212,18 @@ The lab reports:
 The inferential layer is intentionally descriptive of the simulator. It does not convert synthetic virtual-trainee trajectories into human-subject evidence. A real study would need an independently specified protocol, participant-level assignment, appropriate power analysis, preregistration where applicable and statistical treatment of missingness, clustering and repeated measures.
 
 The publication table shown in the UI is therefore best interpreted as a reproducible simulator sensitivity report: it answers "how stable is this synthetic result under resampling?" rather than "has this training method been proven effective in people?"
+
+
+### 14. Component ablation and mechanism sensitivity
+
+The experiment lab now includes a deterministic component-ablation study over a shared procedural scenario stream. The compared configurations are:
+
+- **Full Sentinel Ω** — production fusion, uncertainty, abstention and learned source-history feedback.
+- **Freshness fixed @100** — report-age variation is removed before production fusion. Because the production reliability formula also contains freshness, this is explicitly a *freshness sensitivity* test rather than a perfectly isolated causal intervention.
+- **No learned reliability** — source-history updates are disabled while the source prior remains.
+- **No abstention** — the production fusion output is forced to commit, allowing overconfidence exposure to be measured.
+- **Confidence-only** — a simple confidence aggregation baseline without the production freshness/reliability/uncertainty logic.
+
+Every configuration sees the same generated scenario stream and is scored only after the decision is produced. The UI reports accuracy, false-confidence rate, abstention rate, coverage and Brier score, together with deltas from the full system.
+
+This provides a more defensible research narrative than reporting only the final system score: it shows which mechanisms are sensitive in the synthetic environment and where removing safeguards changes behavior. It does not establish a causal effect in human trainees, and the freshness intervention is intentionally documented as coupled to the existing reliability formulation.
