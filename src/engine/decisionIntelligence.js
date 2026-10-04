@@ -29,9 +29,11 @@ export function betaReliability(alpha = 2, beta = 1) {
 
 export function betaPosterior(history = {}, key, priorAlpha = 2, priorBeta = 1) {
   const h = history[key] || {};
+  const supported = Number(h.supported);
+  const contradicted = Number(h.contradicted);
   return {
-    alpha: priorAlpha + Math.max(0, Number(h.supported || 0)),
-    beta: priorBeta + Math.max(0, Number(h.contradicted || 0))
+    alpha: priorAlpha + (Number.isFinite(supported) ? Math.max(0, supported) : 0),
+    beta: priorBeta + (Number.isFinite(contradicted) ? Math.max(0, contradicted) : 0)
   };
 }
 
@@ -218,9 +220,31 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
     };
   }
 
-  const labels = [...new Set(reports.map(r => r.stance || 'UNKNOWN'))].filter(Boolean);
-  const conflict = conflictIndex(reports, history);
-  const independentSources = new Set(reports.map(r => r.source)).size;
+  const usableReports = reports.filter(r => r.state !== 'dropped');
+  if (!usableReports.length) {
+    return {
+      label: 'UNKNOWN',
+      confidence: 0,
+      rawConfidence: 0,
+      probability: 0,
+      rawProbability: 0,
+      belief: 0,
+      disbelief: 0,
+      uncertainty: 100,
+      conflict: 0,
+      sufficiency: 0,
+      abstain: true,
+      method: 'SUBJECTIVE_LOGIC',
+      calibrationTemperature: 1,
+      distribution: [],
+      rawDistribution: [],
+      contributors: []
+    };
+  }
+
+  const labels = [...new Set(usableReports.map(r => r.stance || 'UNKNOWN'))].filter(Boolean);
+  const conflict = conflictIndex(usableReports, history);
+  const independentSources = new Set(usableReports.map(r => r.source)).size;
 
   /*
    * Weighted opinion pooling:
@@ -229,23 +253,25 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
    * rate across the mutually-exclusive labels makes the projected
    * probabilities sum to one while preserving uncertainty separately.
    */
-  const weighted = reports.map(report => ({
+  const weighted = usableReports.map(report => ({
     report,
     weight: evidenceWeight(report, channelHealth, history)
   }));
-  const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0) || 1;
-  const averageEvidenceStrength = clamp(totalWeight / reports.length);
+  const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0);
+  const averageEvidenceStrength = weighted.length
+    ? clamp(totalWeight / weighted.length)
+    : 0;
+  const uncertainty = clamp(1 - averageEvidenceStrength);
+  const committedMass = 1 - uncertainty;
 
   const candidates = labels.map(label => {
-    const belief = weighted.reduce(
+    const labelWeight = weighted.reduce(
       (sum, item) => sum + (item.report.stance === label ? item.weight : 0),
       0
-    ) / totalWeight;
-    const disbelief = weighted.reduce(
-      (sum, item) => sum + (item.report.stance !== label ? item.weight : 0),
-      0
-    ) / totalWeight;
-    const uncertainty = clamp(1 - averageEvidenceStrength);
+    );
+    const share = totalWeight > 1e-12 ? labelWeight / totalWeight : 1 / Math.max(labels.length, 1);
+    const belief = committedMass * share;
+    const disbelief = committedMass * (1 - share);
     const baseRate = 1 / Math.max(labels.length, 1);
     const projected = clamp(belief + baseRate * uncertainty);
 
@@ -340,12 +366,12 @@ export function informationIntegrityIndex(reports, networkHealth, latency, dropo
   ));
 }
 
-export function calibrationGap(decisions, reports) {
+export function calibrationGap(decisions, reports, history = {}) {
   if (!decisions.length) return 0;
   const gaps = decisions.map(d => {
     const evidence = (d.evidence || []).map(id => reports.find(r => r.id === id)).filter(Boolean);
     const support = evidence.length
-      ? evidence.reduce((a, r) => a + sourceReliability(r) * 100, 0) / evidence.length
+      ? evidence.reduce((a, r) => a + sourceReliability(r, history) * 100, 0) / evidence.length
       : 0;
     return Math.abs(Number(d.confidence) - support);
   });
