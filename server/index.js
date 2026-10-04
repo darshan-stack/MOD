@@ -24,6 +24,13 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 const sessions = new Map();
 
+const BASE_REPORTS = [
+  { id: 'R-701', time: 'SIM', source: 'Raven-2 / UAS', domain: 'AIR', topic: 'kestrel_presence', stance: 'PRESENT', headline: 'Two thermal signatures near OBJ KESTREL', detail: 'Synthetic thermal report · freshness decays with exercise time', confidence: 72, freshness: 100, state: 'live', truth: 'STALE', corroborated: 1, icon: '◌' },
+  { id: 'R-702', time: 'SIM', source: 'Alpha 1-1', domain: 'LAND', topic: 'route_echo', stance: 'CLEAR', headline: 'Route ECHO is clear for movement', detail: 'Synthetic authenticated voice report', confidence: 86, freshness: 100, state: 'live', truth: 'SUPPORTED', corroborated: 2, icon: '⌁' },
+  { id: 'R-703', time: 'SIM', source: 'NetWatch', domain: 'CYBER', topic: 'credential_replay', stance: 'ANOMALY', headline: 'Possible credential replay on logistics node', detail: 'Synthetic cyber indicator · corroboration pending', confidence: 58, freshness: 100, state: 'live', truth: 'SUPPORTED', corroborated: 1, icon: '◇' },
+  { id: 'R-704', time: 'SIM', source: 'Echo 3', domain: 'EW', topic: 'gnss_reliability', stance: 'UNRELIABLE', headline: 'Navigation reliability degraded', detail: 'Synthetic EW indicator · alternate reference required', confidence: 91, freshness: 100, state: 'live', truth: 'SUPPORTED', corroborated: 2, icon: '▧' },
+];
+
 const ROLE_DOMAINS = {
   OC: ['ALL'],
   LAND: ['LAND'],
@@ -82,7 +89,7 @@ function createSession(scenarioKey = 'ALPHA-07') {
     decisions: [],
     messages: [],
     events: [],
-    reports: [],
+    reports: BASE_REPORTS.map(report => ({ ...report })),
     clients: new Set(),
     triggered: new Set(),
     timer: null,
@@ -242,7 +249,7 @@ function startClock(session) {
     session.elapsed += session.speed;
 
     for (const planned of simulationPlan(session.scenarioKey)) {
-      if (planned.at <= session.elapsed && !session.triggered.has(planned.id)) {
+      if (session.autoSimulation && planned.at <= session.elapsed && !session.triggered.has(planned.id)) {
         session.triggered.add(planned.id);
         inject(session, planned.kind, planned.at);
         broadcast(session, 'simulation', { type: 'SIMULATION_EVENT', event: planned });
