@@ -109,7 +109,7 @@ function App() {
   const [experimentRun, setExperimentRun] = useState(1);
   const experiment = useMemo(function() {
     return runCurriculumExperiment({
-      sessions: 24,
+      sessions: 32,
       roundsPerSession: 16,
       seed: 20261006 + experimentRun - 1
     });
