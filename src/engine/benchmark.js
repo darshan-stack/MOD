@@ -130,6 +130,7 @@ function scoreCase(prediction, truth) {
   return {
     correct,
     falseConfident: !correct && decisionProbability >= 70,
+    decisionProbability,
     brier,
     rawBrier
   };
@@ -177,7 +178,7 @@ function addTo(acc, prediction, truth, highConflict) {
   }
 
   acc.rankingSamples.push({
-    confidence: decisionProbability / 100,
+    confidence: score.decisionProbability / 100,
     correct: score.correct,
     abstain: Boolean(prediction.abstain)
   });
