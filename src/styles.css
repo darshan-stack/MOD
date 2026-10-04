@@ -402,3 +402,64 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
   .status-strip{align-items:flex-start;padding:14px 16px;gap:14px;flex-direction:column}
   .status-metrics{width:100%;justify-content:space-between}
 }
+
+
+/* Real-time simulation console */
+.simulation-console{
+  margin:18px 0;
+  border:1px solid #294753;
+  border-radius:8px;
+  padding:16px;
+  background:
+    radial-gradient(circle at 90% 0%,rgba(71,151,157,.10),transparent 28%),
+    linear-gradient(180deg,#0d1e27,#09161e);
+  box-shadow:var(--shadow)
+}
+.simulation-console-head{display:flex;justify-content:space-between;align-items:center;gap:18px}
+.simulation-console h3{font-size:13px;margin:6px 0 0;color:#dce9ed}
+.simulation-console h3 .badge{margin-left:8px;vertical-align:2px}
+.sim-controls{display:flex;gap:8px;align-items:center}
+.sim-toggle,.sim-speed button{
+  border:1px solid #2a4b57;
+  background:#0b1820;
+  color:#86a1ab;
+  font:9px 'DM Mono';
+  border-radius:5px;
+  padding:8px 10px;
+  cursor:pointer
+}
+.sim-toggle.active{color:var(--cyan);border-color:#367b7b;background:#123039}
+.sim-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#536d79;margin-right:7px;vertical-align:1px}
+.sim-toggle.active .sim-dot{background:var(--green);box-shadow:0 0 0 4px rgba(111,215,180,.08)}
+.sim-speed{display:flex;border:1px solid #203e49;border-radius:5px;overflow:hidden}
+.sim-speed button{border:0;border-right:1px solid #203e49;border-radius:0;padding:8px 9px}
+.sim-speed button:last-child{border-right:0}
+.sim-speed button.active{color:var(--cyan);background:#16323a}
+.sim-progress{height:6px;background:#152c36;border-radius:999px;overflow:hidden;margin:15px 0 10px}
+.sim-progress>div{height:100%;background:linear-gradient(90deg,#397e82,#78d2c9);border-radius:999px;transition:width .3s ease}
+.sim-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.sim-step{
+  min-height:90px;
+  padding:10px;
+  border:1px solid #1e3946;
+  border-radius:6px;
+  background:#0a1720;
+  position:relative;
+  transition:.18s ease
+}
+.sim-step.done{border-color:#356c69;background:#10262d}
+.sim-step.next{border-color:#755a31;box-shadow:0 0 0 1px rgba(239,180,95,.10),0 10px 25px rgba(0,0,0,.12)}
+.sim-step-time{font:8px 'DM Mono';color:#66828e}
+.sim-step-body strong{display:block;font-size:10px;color:#cbdde1;margin:7px 0 5px}
+.sim-step-body small{display:block;font:8px 'DM Mono';line-height:1.45;color:#66818d}
+.sim-step>span{position:absolute;right:7px;top:7px;font:7px 'DM Mono';color:#5a7581}
+.sim-step.done>span{color:var(--green)}
+.sim-step.next>span{color:var(--amber)}
+.sim-foot{display:flex;justify-content:space-between;gap:12px;margin-top:11px;border-top:1px solid #1b3440;padding-top:10px;font:8px 'DM Mono';color:#627d89}
+.sim-foot b{color:var(--cyan);margin-right:6px}
+
+@media(max-width:1080px){
+  .simulation-console-head{align-items:flex-start;flex-direction:column}
+  .sim-controls{width:100%;justify-content:space-between}
+  .sim-steps{grid-template-columns:1fr 1fr}
+}
