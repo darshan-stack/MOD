@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint } from './engine/decisionIntelligence';
+import { nextSimulationEvents, simulationPlan, simulationProgress } from './engine/realtimeSimulation';
 
 const SCENARIOS = {
   "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28 },
@@ -47,7 +48,10 @@ function App() {
   const [mode, setMode] = useState('trainee');
   const [scenarioKey, setScenarioKey] = useState('ALPHA-07');
   const [running, setRunning] = useState(true);
-  const [elapsed, setElapsed] = useState(1122);
+  const [elapsed, setElapsed] = useState(0);
+  const [autoSimulation, setAutoSimulation] = useState(true);
+  const [simSpeed, setSimSpeed] = useState(2);
+  const [triggeredSimulationEvents, setTriggeredSimulationEvents] = useState([]);
   const [reports, setReports] = useState(cloneReports);
   const [events, setEvents] = useState(BASE_EVENTS);
   const [decisions, setDecisions] = useState([]);
@@ -83,9 +87,25 @@ function App() {
 
   useEffect(function() {
     if (!running) return undefined;
-    var timer = setInterval(function() { setElapsed(function(v) { return v + 1; }); }, 1000);
+    var timer = setInterval(function() {
+      setElapsed(function(v) {
+        var next = v + simSpeed;
+        if (mode === 'instructor') broadcast({ type: 'CLOCK_TICK', elapsed: next });
+        return next;
+      });
+    }, 1000);
     return function() { clearInterval(timer); };
-  }, [running]);
+  }, [running, simSpeed, mode]);
+
+  useEffect(function() {
+    if (mode !== 'instructor' || !autoSimulation || !running) return;
+    var due = nextSimulationEvents(scenarioKey, elapsed, triggeredSimulationEvents);
+    if (!due.length) return;
+    due.forEach(function(event) {
+      setTriggeredSimulationEvents(function(current) { return current.indexOf(event.id) >= 0 ? current : current.concat(event.id); });
+      inject(event.kind, { source: 'AUTO', simulationId: event.id, simulationTitle: event.title });
+    });
+  }, [elapsed, scenarioKey, mode, autoSimulation, running, triggeredSimulationEvents]);
 
   useEffect(function() { setReplayAt(elapsed); }, [elapsed]);
   useEffect(function() { sha256Fingerprint({ scenarioKey: scenarioKey, reports: reports, decisions: decisions, events: events, messages: messages }).then(function(hash) { setLedgerFingerprint(hash.slice(0, 24).toUpperCase()); }); }, [scenarioKey, reports, decisions, events, messages]);
@@ -109,9 +129,42 @@ function App() {
         setDecisions(function(current) { return current.some(function(d) { return d.id === p.decision.id; }) ? current : [p.decision].concat(current); });
       }
       if (p.type === 'EVENT') {
-        setEvents(function(current) { return current.concat(p.event); });
+        setEvents(function(current) { return current.some(function(e) { return e.id && e.id === p.event.id; }) ? current : current.concat(p.event); });
+      }
+      if (p.type === 'CLOCK_TICK') setElapsed(p.elapsed);
+      if (p.type === 'PARAM') {
+        var setters = { netHealth: setNetHealth, latency: setLatency, dropout: setDropout, conflict: setConflict, freshnessDecay: setFreshnessDecay };
+        if (setters[p.field]) setters[p.field](p.value);
+      }
+      if (p.type === 'SIMULATION_OPTIONS') {
+        if (typeof p.autoSimulation === 'boolean') setAutoSimulation(p.autoSimulation);
+        if (Number.isFinite(p.simSpeed)) setSimSpeed(p.simSpeed);
+      }
+      if (p.type === 'LOAD_SCENARIO') loadScenario(p.key, { remote: true });
+      if (p.type === 'SIM_INJECT') inject(p.kind, { remote: true, simulationId: p.simulationId, simulationTitle: p.simulationTitle });
+      if (p.type === 'STATE_SNAPSHOT') {
+        var snap = p.snapshot || {};
+        if (snap.scenarioKey) setScenarioKey(snap.scenarioKey);
+        if (Number.isFinite(snap.elapsed)) setElapsed(snap.elapsed);
+        if (typeof snap.running === 'boolean') setRunning(snap.running);
+        if (typeof snap.autoSimulation === 'boolean') setAutoSimulation(snap.autoSimulation);
+        if (Number.isFinite(snap.simSpeed)) setSimSpeed(snap.simSpeed);
+        if (Array.isArray(snap.reports)) setReports(snap.reports);
+        if (Array.isArray(snap.events)) setEvents(snap.events);
+        if (Array.isArray(snap.decisions)) setDecisions(snap.decisions);
+        if (Array.isArray(snap.messages)) setMessages(snap.messages);
+        if (Array.isArray(snap.members)) setMembers(snap.members);
+        if (Number.isFinite(snap.netHealth)) setNetHealth(snap.netHealth);
+        if (Number.isFinite(snap.latency)) setLatency(snap.latency);
+        if (Number.isFinite(snap.dropout)) setDropout(snap.dropout);
+        if (Number.isFinite(snap.conflict)) setConflict(snap.conflict);
+        if (Number.isFinite(snap.freshnessDecay)) setFreshnessDecay(snap.freshnessDecay);
+      }
+      if (p.type === 'HELLO') {
+        broadcast({ type: 'STATE_SNAPSHOT', snapshot: { scenarioKey: scenarioKey, elapsed: elapsed, running: running, autoSimulation: autoSimulation, simSpeed: simSpeed, reports: reports, events: events, decisions: decisions, messages: messages, members: members, netHealth: netHealth, latency: latency, dropout: dropout, conflict: conflict, freshnessDecay: freshnessDecay } });
       }
     };
+    setTimeout(function() { channel.postMessage({ type: 'HELLO' }); }, 150);
     return function() { channel.close(); };
   }, []);
 
@@ -119,10 +172,10 @@ function App() {
     if (channelRef.current) channelRef.current.postMessage(payload);
   };
 
-  const addEvent = function(tag, text) {
-    var event = { at: elapsed, tag: tag, text: text };
+  const addEvent = function(tag, text, options) {
+    var event = { id: 'E-' + Date.now() + '-' + Math.random().toString(16).slice(2), at: elapsed, tag: tag, text: text };
     setEvents(function(current) { return current.concat(event); });
-    broadcast({ type: 'EVENT', event: event });
+    if (!options || !options.silent) broadcast({ type: 'EVENT', event: event });
   };
 
   const visibleReports = useMemo(function() {
@@ -153,19 +206,22 @@ function App() {
     return out.length ? out : ['evidence corroboration'];
   }, [decisions, reports]);
 
-  const inject = function(kind) {
+  const inject = function(kind, meta) {
+    meta = meta || {};
+    var remote = meta.remote === true;
+    var eventOptions = { silent: true };
     if (kind === 'delay') {
       setLatency(function(v) { return clamp(v + 18); });
       setFreshnessDecay(function(v) { return clamp(v + 10); });
       setReports(function(current) { return current.map(function(r) { return r.domain === 'AIR' ? { ...r, freshness: clamp(r.freshness - 14), state: clamp(r.freshness - 14) < 40 ? 'stale' : r.state } : r; }); });
-      addEvent('INJECT', 'ISR feed delayed. Freshness decay accelerated.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'ISR feed delayed. Freshness decay accelerated.', eventOptions);
     }
     if (kind === 'dropout') {
       setDropout(function(v) { return clamp(v + 14); });
       setNetHealth(function(v) { return clamp(v - 13); });
       setMembers(function(current) { return current.map(function(m) { return m.id === 'patel' ? { ...m, status: 'offline' } : m; }); });
       setReports(function(current) { return current.map(function(r) { return r.id === 'R-703' ? { ...r, state: 'dropped', detail: 'Source unreachable · last packet retained locally' } : r; }); });
-      addEvent('INJECT', 'NETWATCH node dropped. Last-known data retained.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'NETWATCH node dropped. Last-known data retained.', eventOptions);
     }
     if (kind === 'conflict') {
       setConflict(function(v) { return clamp(v + 16); });
@@ -175,22 +231,36 @@ function App() {
         if (!exists) next.push({ id: 'R-705', time: '14:36:02Z', source: 'Echo 3 / LAND RELAY', domain: 'EW', topic: 'route_echo', stance: 'BLOCKED', headline: 'Route ECHO may be obstructed', detail: 'Independent report disagrees with Alpha 1-1', confidence: 61, freshness: 89, state: 'conflict', truth: 'CONTRADICTORY', corroborated: 1, icon: '↯' });
         return next;
       });
-      addEvent('INJECT', 'High-conflict evidence pair injected: same claim, opposing stances.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'High-conflict evidence pair injected: same claim, opposing stances.', eventOptions);
     }
     if (kind === 'stale') {
       setFreshnessDecay(function(v) { return clamp(v + 18); });
       setReports(function(current) { return current.map(function(r) { return r.id === 'R-701' ? { ...r, state: 'stale', freshness: 19, detail: 'Effective age 3m 12s · review before relying on it' } : r; }); });
-      addEvent('INJECT', 'Raven-2 feed aged beyond the normal decision window.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'Raven-2 feed aged beyond the normal decision window.', eventOptions);
     }
     if (kind === 'split') {
       setTeamChannelDegraded(true);
       setDropout(function(v) { return clamp(v + 18); });
       setNetHealth(function(v) { return clamp(v - 18); });
-      addEvent('INJECT', 'Team channel split. Cross-cell transmissions may be delayed or dropped.');
+      addEvent('INJECT', (meta.simulationTitle ? meta.simulationTitle + ' · ' : '') + 'Team channel split. Cross-cell transmissions may be delayed or dropped.', eventOptions);
     }
+    if (!remote) broadcast({ type: 'SIM_INJECT', kind: kind, simulationId: meta.simulationId || null, simulationTitle: meta.simulationTitle || null });
   };
 
-  const loadScenario = function(key) {
+  const setParameter = function(field, value, remote) {
+    var setters = { netHealth: setNetHealth, latency: setLatency, dropout: setDropout, conflict: setConflict, freshnessDecay: setFreshnessDecay };
+    if (setters[field]) setters[field](Number(value));
+    if (!remote) broadcast({ type: 'PARAM', field: field, value: Number(value) });
+  };
+
+  const updateSimulationOptions = function(nextAuto, nextSpeed) {
+    if (typeof nextAuto === 'boolean') setAutoSimulation(nextAuto);
+    if (Number.isFinite(nextSpeed)) setSimSpeed(nextSpeed);
+    broadcast({ type: 'SIMULATION_OPTIONS', autoSimulation: typeof nextAuto === 'boolean' ? nextAuto : autoSimulation, simSpeed: Number.isFinite(nextSpeed) ? nextSpeed : simSpeed });
+  };
+
+  const loadScenario = function(key, meta) {
+    meta = meta || {};
     var s = SCENARIOS[key];
     setScenarioKey(key);
     setNetHealth(100 - s.comms);
@@ -204,7 +274,9 @@ function App() {
     setElapsed(0);
     setReplayAt(0);
     setRunning(true);
-    setEvents([{ at: 0, tag: 'SYSTEM', text: 'Loaded ' + s.name + '. Ground truth remains hidden until AAR.' }]);
+    setTriggeredSimulationEvents([]);
+    setEvents([{ id: 'E-' + Date.now(), at: 0, tag: 'SYSTEM', text: 'Loaded ' + s.name + '. Real-time degradation schedule armed; ground truth remains hidden until AAR.' }]);
+    if (!meta.remote) broadcast({ type: 'LOAD_SCENARIO', key: key });
   };
 
   const toggleEvidence = function(id) {
@@ -354,10 +426,10 @@ function App() {
         )}
 
         {activeTab === 'team' && <TeamPanel members={members} activeSeat={activeSeat} joinSeat={joinSeat} messages={messages} messageText={messageText} setMessageText={setMessageText} sendMessage={sendMessage} degraded={teamChannelDegraded}/>}
-        {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} setNetHealth={setNetHealth} latency={latency} setLatency={setLatency} dropout={dropout} setDropout={setDropout} conflict={conflict} setConflict={setConflict} freshnessDecay={freshnessDecay} setFreshnessDecay={setFreshnessDecay} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise}/>}
+        {activeTab === 'director' && <DirectorPanel scenarioKey={scenarioKey} scenario={scenario} onScenario={loadScenario} netHealth={netHealth} latency={latency} dropout={dropout} conflict={conflict} freshnessDecay={freshnessDecay} setParameter={setParameter} inject={inject} metrics={metrics} events={events} decisions={decisions} focus={focus} generateNextExercise={generateNextExercise} elapsed={elapsed} autoSimulation={autoSimulation} simSpeed={simSpeed} updateSimulationOptions={updateSimulationOptions} triggeredSimulationEvents={triggeredSimulationEvents}/>}
         {activeTab === 'aar' && <AARPanel decisions={decisions} events={events} reports={reports} metrics={metrics} focus={focus} replayAt={replayAt} setReplayAt={setReplayAt} elapsed={elapsed} exportAAR={exportAAR} integrityIndex={integrityIndex} confidenceGap={confidenceGap} fusedRoute={fusedRoute} ledgerFingerprint={ledgerFingerprint}/>}
 
-        <footer className="app-footer"><span>Sentinel Grid Ω · synthetic training environment · no operational data</span><span>Browser-local room · auditable ledger · hidden-truth AAR</span></footer>
+        <footer className="app-footer"><span>Sentinel Grid Ω · synthetic training environment · no operational data</span><span>Real-time web simulation · instructor-authoritative clock · auditable ledger · hidden-truth AAR</span></footer>
       </main>
     </div>
   );
