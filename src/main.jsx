@@ -396,7 +396,6 @@ function App() {
       text: 'Adaptive Director selected a procedural variant focused on ' + focus.join(', ') + ' at difficulty ' + targetDifficulty + '/10.'
     });
     loadGeneratedScenario(generated, false);
-    addEvent('ADAPT', 'Training loop moved from fixed templates to a seeded procedural scenario.', false);
   };
 
   const joinSeat = function(member) {
@@ -430,6 +429,7 @@ function App() {
       durationSeconds: elapsed,
       network: { netHealth: netHealth, latency: latency, dropout: dropout, conflict: conflict, freshnessDecay: freshnessDecay },
       trainingMetrics: { ...metrics, integrityIndex: integrityIndex, confidenceGap: confidenceGap, fusedRoute: fusedRoute, sourceHistory: sourceHistory, exerciseHistory: exerciseHistory },
+      scenarioGeneration: scenario.generation || null,
       observedFocus: focus,
       decisions: decisions.slice().sort(function(a, b) { return a.at - b.at; }),
       eventTimeline: events.slice().sort(function(a, b) { return a.at - b.at; }),
