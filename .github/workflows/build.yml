@@ -11,11 +11,56 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: viz/requirements.txt
+
       - run: npm ci
       - run: npm test
       - run: python3 -m py_compile viz/rerun_sentinel.py viz/open3d_sentinel.py
+
+      - name: Smoke-test Rerun recording export
+        run: |
+          python -m pip install --disable-pip-version-check rerun-sdk==0.38.1 numpy==2.2.6
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          bundle = {
+              "schema": "sentinel-grid-viz/v1",
+              "exercise": {"key": "CI", "name": "CI smoke test"},
+              "network": {
+                  "netHealth": 80,
+                  "latency": 20,
+                  "dropout": 5,
+                  "conflict": 10,
+                  "freshnessDecay": 10
+              },
+              "fusedRoute": {
+                  "label": "CLEAR",
+                  "belief": 65,
+                  "disbelief": 10,
+                  "uncertainty": 25,
+                  "conflict": 10,
+                  "sufficiency": 75
+              },
+              "reports": [],
+              "events": [{"at": 0, "tag": "SYSTEM", "text": "CI smoke test"}],
+              "decisions": []
+          }
+          Path("/tmp/sentinel-grid-viz.json").write_text(
+              json.dumps(bundle), encoding="utf-8"
+          )
+          PY
+          python viz/rerun_sentinel.py /tmp/sentinel-grid-viz.json --save /tmp/sentinel-grid.rrd
+          test -s /tmp/sentinel-grid.rrd
+
       - run: npm run build
