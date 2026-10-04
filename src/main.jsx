@@ -326,7 +326,7 @@ function App() {
       text: messageText.trim()
     };
     setMessages(function(current) { return [msg].concat(current); });
-    addEvent('TEAM', 'You → ALPHA CELL: ' + msg.text);
+    addEvent('TEAM', msg.actor + ' → ALPHA CELL: ' + msg.text);
     broadcast({ type: 'TEAM_MESSAGE', message: msg });
     setMessageText('');
   };
