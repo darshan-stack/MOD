@@ -83,7 +83,8 @@ The UI includes an optional Visualization Lab using open-source browser librarie
 
 - **Cytoscape.js 3.34.3** — interactive graph visualization for the synthetic communication/evidence network. MIT licensed. ([GitHub](https://github.com/cytoscape/cytoscape.js))
 - **Apache ECharts 6.1.0** — interactive multi-series evidence/confidence analytics. Apache-2.0 licensed. ([GitHub](https://github.com/apache/echarts))
-- **vis-timeline 8.5.4** — zoomable/pannable event and decision timeline. Apache-2.0 OR MIT licensed. ([GitHub](https://github.com/visjs/vis-timeline))
+- **vis-timeline 8.5.4** — zoomable/pannable event and decision timeline. Apache-2.0 OR MIT licensed.
+- **Plotly.js 4.1.1** — interactive scientific plots for learning curves, calibration diagrams, difficulty-response curves and heatmaps. MIT licensed. ([GitHub](https://github.com/visjs/vis-timeline))
 
 - **Rerun 0.38.1** — multimodal time-aware 3D robotics viewer for point clouds, trajectories, text and time-series replay. MIT OR Apache-2.0. ([GitHub](https://github.com/rerun-io/rerun))
 - **Open3D 0.20.0** — 3D point-cloud, geometry and rendering companion viewer. MIT licensed. ([GitHub](https://github.com/isl-org/Open3D))
