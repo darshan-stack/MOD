@@ -352,9 +352,10 @@ export function robustFuse(reports, channelHealth = 1, history = {}) {
 /* --------------------- Information / calibration ----------------------- */
 
 export function informationIntegrityIndex(reports, networkHealth, latency, dropout, conflictPressure, history = {}) {
-  if (!reports.length) return 0;
-  const avgFresh = reports.reduce((a, r) => a + Number(r.freshness || 0), 0) / reports.length;
-  const avgTrust = reports.reduce((a, r) => a + sourceReliability(r, history) * 100, 0) / reports.length;
+  const activeReports = reports.filter(r => r.state !== 'dropped');
+  if (!activeReports.length) return 0;
+  const avgFresh = activeReports.reduce((a, r) => a + Number(r.freshness || 0), 0) / activeReports.length;
+  const avgTrust = activeReports.reduce((a, r) => a + sourceReliability(r, history) * 100, 0) / activeReports.length;
   const networkPenalty = (100 - networkHealth) * 0.32;
   const latencyPenalty = Math.min(latency, 100) * 0.16;
   const dropoutPenalty = dropout * 0.18;
