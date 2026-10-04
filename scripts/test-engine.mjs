@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { explainDecision } from '../src/engine/decisionExplainability.js';
 import { runResilienceBenchmark } from '../src/engine/resilienceLab.js';
 import {
   defaultGlicko2,
