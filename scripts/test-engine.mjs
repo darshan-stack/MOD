@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { runResilienceBenchmark } from '../src/engine/resilienceLab.js';
 import {
   defaultGlicko2,
   glicko2Update,
