@@ -7,6 +7,8 @@ import { runBenchmark, benchmarkHeadline } from './engine/benchmark';
 import { runResilienceBenchmark } from './engine/resilienceLab';
 import { explainDecision } from './engine/decisionExplainability';
 import { generateScenario } from './engine/scenarioGenerator';
+import { runCurriculumExperiment, experimentCsv } from './engine/experimentLab';
+import ExperimentPanel from './components/ExperimentPanel';
 
 const SCENARIOS = {
   "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28, routeTruth: 'CLEAR' },
@@ -104,6 +106,14 @@ function App() {
   const [ledgerFingerprint, setLedgerFingerprint] = useState('PENDING');
   const [benchmarkRun, setBenchmarkRun] = useState(1);
   const [resilienceRun, setResilienceRun] = useState(1);
+  const [experimentRun, setExperimentRun] = useState(1);
+  const experiment = useMemo(function() {
+    return runCurriculumExperiment({
+      sessions: 24,
+      roundsPerSession: 16,
+      seed: 20261006 + experimentRun - 1
+    });
+  }, [experimentRun]);
   const resilience = useMemo(function() {
     return runResilienceBenchmark({ runsPerAttack: 40, seed: 20261004 + resilienceRun - 1 });
   }, [resilienceRun]);
@@ -472,6 +482,7 @@ function App() {
           <button className={activeTab === 'aar' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('aar')}><span className="icon">≡</span>AAR & replay</button>
           <button className={activeTab === 'benchmark' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('benchmark')}><span className="icon">◫</span>Benchmark lab<em>{benchmark.totalRuns}</em></button>
           <button className={activeTab === 'resilience' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('resilience')}><span className="icon">↯</span>Red-team resilience<em>{resilience.totalRuns}</em></button>
+          <button className={activeTab === 'experiment' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('experiment')}><span className="icon">∿</span>Experiment lab<em>{experiment.totalCases}</em></button>
           <button className={activeTab === 'viz' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('viz')}><span className="icon">◈</span>Visualization lab<em>OSS</em></button>
           <div className="nav-label instructor-label">TRAINING DIRECTOR</div>
           <button className={activeTab === 'director' ? 'nav-item active' : 'nav-item'} onClick={() => { setMode('instructor'); setActiveTab('director'); }}><span className="icon">⚙</span>Exercise director</button>
@@ -481,7 +492,7 @@ function App() {
       </aside>
 
       <main className="main">
-        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : activeTab === 'benchmark' ? 'Benchmark laboratory' : activeTab === 'resilience' ? 'Red-team resilience lab' : activeTab === 'viz' ? 'Visualization laboratory' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
+        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : activeTab === 'benchmark' ? 'Benchmark laboratory' : activeTab === 'resilience' ? 'Red-team resilience lab' : activeTab === 'experiment' ? 'Synthetic experiment laboratory' : activeTab === 'viz' ? 'Visualization laboratory' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
 
         {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing UI-hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
 
