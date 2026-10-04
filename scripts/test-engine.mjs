@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { runCurriculumExperiment, experimentCsv } from '../src/engine/experimentLab.js';
 import { runExperimentStatistics } from '../src/engine/statisticsLab.js';
+import { runAblationStudy, ablationCsv } from '../src/engine/ablationLab.js';
 import { generateScenario, validateScenario, SCENARIO_DSL } from '../src/engine/scenarioGenerator.js';
 import { explainDecision } from '../src/engine/decisionExplainability.js';
 import { runResilienceBenchmark } from '../src/engine/resilienceLab.js';
@@ -175,6 +176,29 @@ for (const seed of [1, 17, 20261005, 20261007, 429496729]) {
   assert(routeEvidence.length >= SCENARIO_DSL.constraints.minRouteReports);
   assert(new Set(routeEvidence.map(r => r.source)).size >= SCENARIO_DSL.constraints.minIndependentRouteSources);
 }
+
+
+const ablation = runAblationStudy({ runs: 24, seed: 20261008 });
+assert.equal(ablation.runs, 24);
+assert.equal(ablation.variants.length, 5);
+assert.equal(ablation.variants.find(row => row.key === 'FULL').cases, 24);
+assert.equal(Object.values(ablation.rowsByVariant).flat().length, 24 * 5);
+assert(Number.isFinite(ablation.headline.productionAccuracy));
+assert(Number.isFinite(ablation.headline.largestAccuracyDrop));
+assert.equal(ablation.methodology.sameGeneratedCaseStream, true);
+assert(ablationCsv(ablation).split('\n').length === 24 * 5 + 1);
+
+console.log('ablation laboratory checks: PASS');
+console.log(JSON.stringify({
+  productionAccuracy: ablation.headline.productionAccuracy,
+  largestAccuracyDrop: ablation.headline.largestAccuracyDrop,
+  variants: ablation.variants.map(row => ({
+    key: row.key,
+    accuracy: row.accuracy,
+    falseConfidenceRate: row.falseConfidenceRate,
+    abstentionRate: row.abstentionRate
+  }))
+}, null, 2));
 
 console.log('statistical experiment checks: PASS');
 console.log(JSON.stringify({
