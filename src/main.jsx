@@ -494,23 +494,23 @@ function RerunEmbeddedPanel() {
   const [sourceUrl, setSourceUrl] = useState('');
   const [status, setStatus] = useState('READY · LOAD A .RRD RECORDING');
 
-  const stopViewer = function() {
+  const stopViewer = function(keepObjectUrl) {
     if (viewerRef.current) {
       try { viewerRef.current.stop(); } catch (_) {}
       viewerRef.current = null;
     }
-    if (objectUrlRef.current) {
+    if (!keepObjectUrl && objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
     }
   };
 
-  const startViewer = async function(source) {
+  const startViewer = async function(source, keepObjectUrl) {
     if (!hostRef.current || !source) {
       setStatus('SELECT A .RRD FILE OR ENTER A RECORDING URL');
       return;
     }
-    stopViewer();
+    stopViewer(Boolean(keepObjectUrl));
     setStatus('LOADING RERUN WEB VIEWER…');
     try {
       const module = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/@rerun-io/web-viewer@0.38.1/+esm');
@@ -537,7 +537,7 @@ function RerunEmbeddedPanel() {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const objectUrl = URL.createObjectURL(file);
     objectUrlRef.current = objectUrl;
-    startViewer(objectUrl);
+    startViewer(objectUrl, true);
   };
 
   useEffect(function() {
