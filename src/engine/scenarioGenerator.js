@@ -70,10 +70,12 @@ function intRange(rng, min, max) {
 }
 
 function makeTime(seconds) {
-  const s = Math.max(0, Math.floor(seconds));
-  const mm = String(32 + Math.floor(s / 60)).padStart(2, '0');
-  const ss = String(s % 60).padStart(2, '0');
-  return '14:' + mm + ':' + ss + 'Z';
+  const base = 14 * 3600 + 32 * 60;
+  const total = base + Math.max(0, Math.floor(seconds));
+  const hh = String(Math.floor(total / 3600) % 24).padStart(2, '0');
+  const mm = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+  const ss = String(total % 60).padStart(2, '0');
+  return hh + ':' + mm + ':' + ss + 'Z';
 }
 
 function routeHeadline(label, stance) {
@@ -137,9 +139,16 @@ export function generateScenario({ seed = 20261005, difficulty = 6, variant = 0 
   const conflict = intRange(rng, 6 + level * 2, 18 + level * 6);
   const reportCount = intRange(rng, dsl.constraints.minReports, dsl.constraints.maxReports);
 
-  const routeSources = dsl.sources.slice().sort(() => rng() - 0.5).slice(0, 4);
+  const routeSources = dsl.sources.slice();
+  for (let i = routeSources.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = routeSources[i];
+    routeSources[i] = routeSources[j];
+    routeSources[j] = tmp;
+  }
+  const selectedRouteSources = routeSources.slice(0, 4);
   const reports = [];
-  routeSources.forEach(function(source, index) {
+  selectedRouteSources.forEach(function(source, index) {
     const correct = index === 0 || rng() > (0.14 + level * 0.025);
     const stance = correct ? truth : pick(rng, LABELS.filter(x => x !== truth));
     const freshness = intRange(rng, Math.max(20, 92 - level * 5), 98);
