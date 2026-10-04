@@ -52,9 +52,35 @@ jobs:
                   "conflict": 10,
                   "sufficiency": 75
               },
-              "reports": [],
-              "events": [{"at": 0, "tag": "SYSTEM", "text": "CI smoke test"}],
-              "decisions": []
+              "reports": [
+                  {
+                      "id": "CI-R1",
+                      "source": "Alpha 1-1",
+                      "domain": "LAND",
+                      "stance": "CLEAR",
+                      "confidence": 88,
+                      "freshness": 92,
+                      "state": "live",
+                      "corroborated": 2
+                  },
+                  {
+                      "id": "CI-R2",
+                      "source": "Echo 3",
+                      "domain": "EW",
+                      "stance": "BLOCKED",
+                      "confidence": 52,
+                      "freshness": 74,
+                      "state": "conflict",
+                      "corroborated": 1
+                  }
+              ],
+              "events": [
+                  {"at": 0, "tag": "SYSTEM", "text": "CI smoke test"},
+                  {"at": 4, "tag": "INJECT", "text": "Synthetic conflict"}
+              ],
+              "decisions": [
+                  {"at": 5, "action": "VERIFY", "confidence": 64, "uncertainty": 34}
+              ]
           }
           Path("/tmp/sentinel-grid-viz.json").write_text(
               json.dumps(bundle), encoding="utf-8"
