@@ -41,7 +41,7 @@ function quantile(values, probability) {
   return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 }
 
-function round(value, digits = 3) {
+function roundNumber(value, digits = 3) {
   return Number(Number(value).toFixed(digits));
 }
 
@@ -82,8 +82,8 @@ function bootstrapStatistic(valuesBySession, statistic, { seed = 1, repetitions 
 
   return {
     estimate: statistic(values),
-    lower: round(quantile(samples, 0.025), 3),
-    upper: round(quantile(samples, 0.975), 3),
+    lower: roundNumber(quantile(samples, 0.025), 6),
+    upper: roundNumber(quantile(samples, 0.975), 6),
     repetitions: samples.length
   };
 }
@@ -104,64 +104,59 @@ function pairedRandomizationPValue(differences, { seed = 1, repetitions = 20000 
     if (Math.abs(total / values.length) >= observed - 1e-12) extreme += 1;
   }
 
-  return round((extreme + 1) / (repetitions + 1), 4);
+  return roundNumber((extreme + 1) / (repetitions + 1), 4);
 }
 
 function cohenH(p1, p2) {
   const safe = function(p) {
     return clamp(Number(p), 1e-9, 1 - 1e-9);
   };
-  return round(2 * (Math.asin(Math.sqrt(safe(p2))) - Math.asin(Math.sqrt(safe(p1)))), 3);
+  return roundNumber(
+    2 * (Math.asin(Math.sqrt(safe(p2))) - Math.asin(Math.sqrt(safe(p1)))),
+    3
+  );
 }
 
 function pairedDz(differences) {
   const values = differences.map(Number).filter(Number.isFinite);
   const sd = Math.sqrt(variance(values));
-  return sd > 1e-12 ? round(mean(values) / sd, 3) : 0;
-}
-
-function ciRecord(estimate, bootstrap, digits = 3) {
-  return {
-    estimate: round(estimate, digits),
-    lower: round(bootstrap.lower, digits),
-    upper: round(bootstrap.upper, digits)
-  };
+  return sd > 1e-12 ? roundNumber(mean(values) / sd, 3) : 0;
 }
 
 function comparison({
   label,
   fixedValues,
   adaptiveValues,
-  scale = 1,
+  differenceDirection = 1,
   seed = 1,
   repetitions = 2000,
   effect = null
 }) {
-  const paired = fixedValues.map(function(value, index) {
+  const pairedAdaptiveMinusFixed = fixedValues.map(function(value, index) {
     return Number(adaptiveValues[index]) - Number(value);
   });
   const fixed = mean(fixedValues);
   const adaptive = mean(adaptiveValues);
-  const bootstrap = bootstrapStatistic(paired, mean, { seed, repetitions });
-  const pValue = pairedRandomizationPValue(paired, { seed: seed + 100003, repetitions: repetitions * 10 });
-
-  const fixedScaled = fixed * scale;
-  const adaptiveScaled = adaptive * scale;
-  const differenceScaled = mean(paired) * scale;
+  const directedDifferences = pairedAdaptiveMinusFixed.map(value => value * differenceDirection);
+  const bootstrap = bootstrapStatistic(directedDifferences, mean, { seed, repetitions });
+  const pValue = pairedRandomizationPValue(directedDifferences, {
+    seed: seed + 100003,
+    repetitions: repetitions * 10
+  });
 
   return {
     label,
-    fixed: round(fixedScaled),
-    adaptive: round(adaptiveScaled),
-    difference: round(differenceScaled),
+    fixed: roundNumber(fixed),
+    adaptive: roundNumber(adaptive),
+    difference: roundNumber(mean(directedDifferences)),
     confidenceInterval95: {
-      lower: round(bootstrap.lower * scale),
-      upper: round(bootstrap.upper * scale)
+      lower: roundNumber(bootstrap.lower),
+      upper: roundNumber(bootstrap.upper)
     },
     pValueRandomization: pValue,
     effectSize: effect || {
       type: 'paired Cohen dz',
-      value: pairedDz(paired)
+      value: pairedDz(directedDifferences)
     },
     sessions: fixedValues.length
   };
@@ -177,29 +172,44 @@ function finalBandSessionValues(rows, field) {
   });
 }
 
-function buildRoundConfidence(rows, rounds, sessions, seed, repetitions) {
+function buildRoundConfidence(rows, rounds, seed, repetitions) {
   const result = [];
-  for (let round = 1; round <= rounds; round++) {
-    const rowsAtRound = rows.filter(row => Number(row.round) === round);
+  for (let roundIndex = 1; roundIndex <= rounds; roundIndex++) {
+    const rowsAtRound = rows.filter(row => Number(row.round) === roundIndex);
     const fixedBySession = sessionMeans(rowsAtRound, 'fixedCorrect');
     const adaptiveBySession = sessionMeans(rowsAtRound, 'adaptiveCorrect');
     const fixedValues = fixedBySession.map(x => x.value);
     const adaptiveValues = adaptiveBySession.map(x => x.value);
-    const fixedBoot = bootstrapStatistic(fixedValues, mean, { seed: seed + round * 31, repetitions });
-    const adaptiveBoot = bootstrapStatistic(adaptiveValues, mean, { seed: seed + round * 37, repetitions });
+    const fixedBoot = bootstrapStatistic(fixedValues, mean, {
+      seed: seed + roundIndex * 31,
+      repetitions
+    });
+    const adaptiveBoot = bootstrapStatistic(adaptiveValues, mean, {
+      seed: seed + roundIndex * 37,
+      repetitions
+    });
     const differenceBoot = bootstrapStatistic(
       fixedValues.map((value, index) => adaptiveValues[index] - value),
       mean,
-      { seed: seed + round * 41, repetitions }
+      { seed: seed + roundIndex * 41, repetitions }
     );
 
     result.push({
-      round,
-      fixedAccuracy: round === 0 ? 0 : round(fixedBoot.estimate * 100, 1),
-      adaptiveAccuracy: round(adaptiveBoot.estimate * 100, 1),
-      fixedAccuracyCI95: [round(fixedBoot.lower * 100, 1), round(fixedBoot.upper * 100, 1)],
-      adaptiveAccuracyCI95: [round(adaptiveBoot.lower * 100, 1), round(adaptiveBoot.upper * 100, 1)],
-      accuracyGainCI95: [round(differenceBoot.lower * 100, 1), round(differenceBoot.upper * 100, 1)]
+      round: roundIndex,
+      fixedAccuracy: roundNumber(fixedBoot.estimate * 100, 1),
+      adaptiveAccuracy: roundNumber(adaptiveBoot.estimate * 100, 1),
+      fixedAccuracyCI95: [
+        roundNumber(fixedBoot.lower * 100, 1),
+        roundNumber(fixedBoot.upper * 100, 1)
+      ],
+      adaptiveAccuracyCI95: [
+        roundNumber(adaptiveBoot.lower * 100, 1),
+        roundNumber(adaptiveBoot.upper * 100, 1)
+      ],
+      accuracyGainCI95: [
+        roundNumber(differenceBoot.lower * 100, 1),
+        roundNumber(differenceBoot.upper * 100, 1)
+      ]
     });
   }
   return result;
@@ -241,14 +251,8 @@ export function runExperimentStatistics(
     value: mean(rows.map(row => Number(row.adaptiveConfidence || 0)))
   }));
 
-  const accuracyDiffs = fixedAccuracyBySession.map((row, index) =>
-    adaptiveAccuracyBySession[index].value - row.value
-  );
-  const brierDiffs = fixedBrierBySession.map((row, index) =>
+  const brierImprovement = fixedBrierBySession.map((row, index) =>
     row.value - adaptiveBrierBySession[index].value
-  );
-  const confidenceDiffs = fixedConfidenceBySession.map((row, index) =>
-    adaptiveConfidenceBySession[index].value - row.value
   );
 
   const finalFixed = finalBandSessionValues(pairedRows, 'fixedCorrect');
@@ -265,12 +269,15 @@ export function runExperimentStatistics(
     label: 'Overall accuracy',
     fixedValues: fixedAccuracyBySession.map(x => x.value),
     adaptiveValues: adaptiveAccuracyBySession.map(x => x.value),
-    scale: 100,
+    differenceDirection: 1,
     seed: seed + 1,
     repetitions: bootstrapRepetitions,
     effect: {
       type: 'Cohen h + paired randomization',
-      value: cohenH(mean(fixedAccuracyBySession.map(x => x.value)), mean(adaptiveAccuracyBySession.map(x => x.value)))
+      value: cohenH(
+        mean(fixedAccuracyBySession.map(x => x.value)),
+        mean(adaptiveAccuracyBySession.map(x => x.value))
+      )
     }
   });
 
@@ -278,12 +285,12 @@ export function runExperimentStatistics(
     label: 'Brier improvement',
     fixedValues: fixedBrierBySession.map(x => x.value),
     adaptiveValues: adaptiveBrierBySession.map(x => x.value),
-    scale: -1,
+    differenceDirection: -1,
     seed: seed + 2,
     repetitions: bootstrapRepetitions,
     effect: {
       type: 'paired Cohen dz',
-      value: pairedDz(brierDiffs)
+      value: pairedDz(brierImprovement)
     }
   });
 
@@ -291,12 +298,16 @@ export function runExperimentStatistics(
     label: 'Mean confidence',
     fixedValues: fixedConfidenceBySession.map(x => x.value),
     adaptiveValues: adaptiveConfidenceBySession.map(x => x.value),
-    scale: 1,
+    differenceDirection: 1,
     seed: seed + 3,
     repetitions: bootstrapRepetitions,
     effect: {
       type: 'paired Cohen dz',
-      value: pairedDz(confidenceDiffs)
+      value: pairedDz(
+        fixedConfidenceBySession.map((row, index) =>
+          adaptiveConfidenceBySession[index].value - row.value
+        )
+      )
     }
   });
 
@@ -312,12 +323,12 @@ export function runExperimentStatistics(
 
   const finalAccuracy = {
     label: 'Final 4-round accuracy',
-    fixed: round(mean(finalFixed.map(x => x.value)) * 100, 1),
-    adaptive: round(mean(finalAdaptive.map(x => x.value)) * 100, 1),
-    difference: round(mean(finalAccuracyDiffs) * 100, 1),
+    fixed: roundNumber(mean(finalFixed.map(x => x.value)) * 100, 1),
+    adaptive: roundNumber(mean(finalAdaptive.map(x => x.value)) * 100, 1),
+    difference: roundNumber(mean(finalAccuracyDiffs) * 100, 1),
     confidenceInterval95: {
-      lower: round(finalAccuracyBootstrap.lower * 100, 1),
-      upper: round(finalAccuracyBootstrap.upper * 100, 1)
+      lower: roundNumber(finalAccuracyBootstrap.lower * 100, 1),
+      upper: roundNumber(finalAccuracyBootstrap.upper * 100, 1)
     },
     pValueRandomization: pairedRandomizationPValue(finalAccuracyDiffs, {
       seed: seed + 100004,
@@ -325,7 +336,10 @@ export function runExperimentStatistics(
     }),
     effectSize: {
       type: 'Cohen h',
-      value: cohenH(mean(finalFixed.map(x => x.value)), mean(finalAdaptive.map(x => x.value)))
+      value: cohenH(
+        mean(finalFixed.map(x => x.value)),
+        mean(finalAdaptive.map(x => x.value))
+      )
     },
     sessions
   };
@@ -334,10 +348,10 @@ export function runExperimentStatistics(
     label: 'Final Glicko-2 rating',
     fixed: null,
     adaptive: null,
-    difference: round(mean(finalRatingDiffs), 1),
+    difference: roundNumber(mean(finalRatingDiffs), 1),
     confidenceInterval95: {
-      lower: round(finalRatingBootstrap.lower, 1),
-      upper: round(finalRatingBootstrap.upper, 1)
+      lower: roundNumber(finalRatingBootstrap.lower, 1),
+      upper: roundNumber(finalRatingBootstrap.upper, 1)
     },
     pValueRandomization: pairedRandomizationPValue(finalRatingDiffs, {
       seed: seed + 100005,
@@ -353,7 +367,6 @@ export function runExperimentStatistics(
   const roundConfidence = buildRoundConfidence(
     pairedRows,
     roundsPerSession,
-    sessions,
     seed + 200,
     Math.max(500, Math.floor(bootstrapRepetitions / 2))
   );
