@@ -109,6 +109,8 @@ function App() {
     try { return JSON.parse(localStorage.getItem('sentinel-grid-source-history') || 'null') || {}; } catch (_) { return {}; }
   });
   const channelRef = useRef(null);
+  const sessionIdRef = useRef(makeId('TAB'));
+  const suppressEventBroadcastRef = useRef(false);
 
   const scenario = useMemo(function() { return { ...SCENARIOS[scenarioKey], difficulty: scenarioDifficulty }; }, [scenarioKey, scenarioDifficulty]);
   const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic === 'route_echo'; }); }, [reports]);
@@ -134,6 +136,14 @@ function App() {
     channelRef.current = channel;
     channel.onmessage = function(event) {
       var p = event.data || {};
+      if (p.origin === sessionIdRef.current) return;
+      if (p.type === 'SCENARIO') {
+        loadScenario(p.key, true);
+      }
+      if (p.type === 'INJECT') {
+        suppressEventBroadcastRef.current = true;
+        try { inject(p.kind, true); } finally { suppressEventBroadcastRef.current = false; }
+      }
       if (p.type === 'JOIN') {
         setMembers(function(current) {
           if (current.some(function(m) { return m.id === p.member.id; })) return current;
@@ -154,13 +164,13 @@ function App() {
   }, []);
 
   const broadcast = function(payload) {
-    if (channelRef.current) channelRef.current.postMessage(payload);
+    if (channelRef.current) channelRef.current.postMessage({ ...payload, origin: sessionIdRef.current });
   };
 
   const addEvent = function(tag, text) {
     var event = { at: elapsed, tag: tag, text: text };
     setEvents(function(current) { return current.concat(event); });
-    broadcast({ type: 'EVENT', event: event });
+    if (!suppressEventBroadcastRef.current) broadcast({ type: 'EVENT', event: event });
   };
 
   const visibleReports = useMemo(function() {
@@ -194,7 +204,8 @@ function App() {
     return out.length ? out : ['evidence corroboration'];
   }, [decisions, reports]);
 
-  const inject = function(kind) {
+  const inject = function(kind, remote) {
+    remote = Boolean(remote);
     if (kind === 'delay') {
       setLatency(function(v) { return clamp(v + 18); });
       setFreshnessDecay(function(v) { return clamp(v + 10); });
@@ -229,9 +240,11 @@ function App() {
       setNetHealth(function(v) { return clamp(v - 18); });
       addEvent('INJECT', 'Team channel split. Cross-cell transmissions may be delayed or dropped.');
     }
+    if (!remote) broadcast({ type: 'INJECT', kind: kind });
   };
 
-  const loadScenario = function(key) {
+  const loadScenario = function(key, remote) {
+    remote = Boolean(remote);
     var s = SCENARIOS[key];
     setScenarioKey(key);
     setScenarioDifficulty(s.difficulty);
@@ -250,6 +263,7 @@ function App() {
     setReplayAt(0);
     setRunning(true);
     setEvents([{ at: 0, tag: 'SYSTEM', text: 'Loaded ' + s.name + '. Ground truth remains hidden until AAR.' }]);
+    if (!remote) broadcast({ type: 'SCENARIO', key: key });
   };
 
   const toggleEvidence = function(id) {
