@@ -167,3 +167,8 @@ The ablation study is intentionally narrower than the benchmark suite: it is a m
 
 ### Degradation Response Surface Lab
 A deterministic synthetic sweep varies network health and contradiction pressure over the same base case stream, producing response surfaces for committed probability, epistemic uncertainty, abstention phase, and false-confidence sensitivity. This is simulator-only evidence.
+
+
+## Research evidence dashboard
+
+The Experiment Lab now starts with a consolidated **Research Evidence Dashboard** that places the benchmark suite, red-team resilience harness, adaptive curriculum inference, component ablation study and degradation response surface on one auditable screen. The dashboard includes snapshot JSON/CSV exports and separates each layer's intended evidentiary role so synthetic simulator statistics are not mistaken for human-subject findings.
