@@ -91,16 +91,30 @@ function App() {
   const confidenceGap = useMemo(function() { return computeCalibrationGap(decisions, reports); }, [decisions, reports]);
 
   useEffect(function() {
-    if (!running) return undefined;
+    if (!running || mode !== 'instructor') return undefined;
     var timer = setInterval(function() {
       setElapsed(function(v) {
         var next = v + simSpeed;
-        if (mode === 'instructor') broadcast({ type: 'CLOCK_TICK', elapsed: next });
+        broadcast({ type: 'CLOCK_TICK', elapsed: next });
         return next;
       });
     }, 1000);
     return function() { clearInterval(timer); };
   }, [running, simSpeed, mode]);
+
+  useEffect(function() {
+    if (!running) return undefined;
+    var timer = setInterval(function() {
+      setReports(function(current) {
+        return current.map(function(report) {
+          if (report.state === 'dropped') return report;
+          var decay = Number(freshnessDecay || 0) / 60;
+          return { ...report, freshness: clamp(report.freshness - decay * Math.max(1, simSpeed), 0, 100), state: report.freshness - decay * Math.max(1, simSpeed) < 40 ? 'stale' : report.state };
+        });
+      });
+    }, 1000);
+    return function() { clearInterval(timer); };
+  }, [running, freshnessDecay, simSpeed]);
 
   useEffect(function() {
     if (mode !== 'instructor' || !autoSimulation || !running) return;
@@ -421,7 +435,7 @@ function App() {
       </aside>
 
       <main className="main">
-        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setExerciseRunning(!running)}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
+        <header className="topbar"><div><div className="breadcrumb">SESSION / {sessionId} / EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : 'Exercise director'}</h1></div><div className="top-actions"><div className="seat-switch"><small>SEAT</small>{Object.keys(ROLE_LABELS).map(function(role){return <button key={role} className={participantRole === role ? 'active' : ''} onClick={() => { setParticipantRole(role); setNetworkStatus('CONNECTED'); }}>{role}</button>;})}</div><div className="sync"><span className="sync-dot"></span>{networkStatus} <small>{mode.toUpperCase()}</small></div><button className="ghost-btn" onClick={() => setExerciseRunning(!running)}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
 
         {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
 
@@ -471,7 +485,7 @@ function Presence(props) {
 }
 
 function TeamPanel({ members, activeSeat, joinSeat, messages, messageText, setMessageText, sendMessage, degraded }) {
-  return <div className="team-layout"><section className="chat-panel"><div className="section-head"><div><div className="eyebrow">TEAM ROOM</div><h2>ALPHA CELL <span className="channel-lock">⌁</span></h2></div><span className={'badge ' + (degraded ? 'ew' : 'live')}>{degraded ? 'DEGRADED NET' : 'STABLE NET'}</span></div><div className="room-banner"><div><strong>Multi-seat prototype</strong><span>Open this Vite URL in another browser tab to join the local team room.</span></div><span className="room-chip">BroadcastChannel</span></div><div className="chat-messages">{messages.slice().reverse().map(function(c){return <div className="chat-message" key={c.id}><div className="mini-avatar">{c.initials}</div><div><div className="chat-meta"><strong>{c.actor}</strong><span>T+{fmtClock(c.at)}</span></div><p>{c.text}</p></div></div>;})}<div className="system-message">Critical traffic may be delayed, dropped or arrive out of order. Verify before escalating.</div></div><div className="composer"><textarea value={messageText} onChange={function(e){setMessageText(e.target.value);}} onKeyDown={function(e){if(e.key === 'Enter' && !e.shiftKey){e.preventDefault();sendMessage();}}} placeholder="Transmit to ALPHA CELL…"/><button className="primary-btn" onClick={sendMessage}>TRANSMIT ↗</button></div></section><aside className="team-side"><div className="eyebrow">TEAM SEATS</div>{members.map(function(m){return <button key={m.id} className={activeSeat === m.id ? 'channel active' : 'channel'} onClick={() => joinSeat(m)}><span>{m.initials}</span>{m.role}<small>{m.status}</small></button>;})}<div className="side-tip"><strong>Training cue</strong><p>Track source, age, corroboration and contradiction before committing a decision.</p></div></aside></div>;
+  return <div className="team-layout"><section className="chat-panel"><div className="section-head"><div><div className="eyebrow">TEAM ROOM</div><h2>ALPHA CELL <span className="channel-lock">⌁</span></h2></div><span className={'badge ' + (degraded ? 'ew' : 'live')}>{degraded ? 'DEGRADED NET' : 'STABLE NET'}</span></div><div className="room-banner"><div><strong>Multi-seat live exercise</strong><span>Session {sessionId} · {ROLE_LABELS[participantRole]} · communication effects are simulated by the exercise engine.</span></div><span className="room-chip">BroadcastChannel</span></div><div className="chat-messages">{messages.slice().reverse().map(function(c){return <div className="chat-message" key={c.id}><div className="mini-avatar">{c.initials}</div><div><div className="chat-meta"><strong>{c.actor}</strong><span>T+{fmtClock(c.at)}</span></div><p>{c.text}</p></div></div>;})}<div className="system-message">Critical traffic may be delayed, dropped or arrive out of order. Verify before escalating.</div></div><div className="composer"><textarea value={messageText} onChange={function(e){setMessageText(e.target.value);}} onKeyDown={function(e){if(e.key === 'Enter' && !e.shiftKey){e.preventDefault();sendMessage();}}} placeholder="Transmit to ALPHA CELL…"/><button className="primary-btn" onClick={sendMessage}>TRANSMIT ↗</button></div></section><aside className="team-side"><div className="eyebrow">TEAM SEATS</div>{members.map(function(m){return <button key={m.id} className={activeSeat === m.id ? 'channel active' : 'channel'} onClick={() => joinSeat(m)}><span>{m.initials}</span>{m.role}<small>{m.status}</small></button>;})}<div className="side-tip"><strong>Training cue</strong><p>Track source, age, corroboration and contradiction before committing a decision.</p></div></aside></div>;
 }
 
 function SimulationTimeline({ scenarioKey, elapsed, autoSimulation, simSpeed, updateSimulationOptions, triggeredSimulationEvents }) {
