@@ -5,6 +5,7 @@ import './styles.css';
 import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint, defaultGlicko2, glicko2Update, calibrationSummary, evaluateDecisionOutcome, updateSourceHistory, sourceReliability, brierScore } from './engine/decisionIntelligence';
 import { runBenchmark, benchmarkHeadline } from './engine/benchmark';
 import { runResilienceBenchmark } from './engine/resilienceLab';
+import { explainDecision } from './engine/decisionExplainability';
 
 const SCENARIOS = {
   "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28, routeTruth: 'CLEAR' },
@@ -122,6 +123,9 @@ function App() {
   const scenario = useMemo(function() { return { ...SCENARIOS[scenarioKey], difficulty: scenarioDifficulty }; }, [scenarioKey, scenarioDifficulty]);
   const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic === 'route_echo'; }); }, [reports]);
   const fusedRoute = useMemo(function() { return robustFuse(routeEvidence, netHealth / 100, sourceHistory); }, [routeEvidence, netHealth, sourceHistory]);
+  const explainability = useMemo(function() {
+    return explainDecision(reports, selectedEvidence, netHealth / 100, sourceHistory);
+  }, [reports, selectedEvidence, netHealth, sourceHistory]);
   const integrityIndex = useMemo(function() { return informationIntegrityIndex(reports, netHealth, latency, dropout, conflict, sourceHistory); }, [reports, netHealth, latency, dropout, conflict, sourceHistory]);
   const confidenceGap = useMemo(function() { return computeCalibrationGap(decisions, reports, sourceHistory); }, [decisions, reports, sourceHistory]);
   const calibration = useMemo(function() { return calibrationSummary(decisions); }, [decisions]);
@@ -400,7 +404,12 @@ function App() {
       eventTimeline: events.slice().sort(function(a, b) { return a.at - b.at; }),
       informationLedger: reports.map(function(r) { return { id: r.id, source: r.source, domain: r.domain, state: r.state, confidence: r.confidence, freshness: r.freshness, trustScore: trustScore(r), groundTruth: r.truth }; }),
       teamMessages: messages.slice().sort(function(a, b) { return a.at - b.at; }),
-      decisionSafety: { fusedClaim: fusedRoute, abstain: fusedRoute.abstain, trainingInstruction: fusedRoute.abstain ? 'VERIFY / SEEK CORROBORATION' : 'SUFFICIENT FOR TRAINING DECISION' },
+      decisionSafety: {
+        fusedClaim: fusedRoute,
+        abstain: fusedRoute.abstain,
+        trainingInstruction: fusedRoute.abstain ? 'VERIFY / SEEK CORROBORATION' : 'SUFFICIENT FOR TRAINING DECISION'
+      },
+      explainability: explainability,
       auditFingerprint: ledgerFingerprint,
       note: 'Synthetic training analytics; not an operational assessment.'
     };
@@ -461,6 +470,7 @@ function App() {
 
               <aside className="right-column">
                 <div className="panel-head"><div><div className="eyebrow">INFORMATION INTEGRITY</div><h2>Trust state</h2></div><span className="lock">◎</span></div><p className="panel-note">Trust combines source history, freshness, corroboration and network health. Hidden truth is withheld until AAR.</p><div className={'ai-advisor ' + (fusedRoute.abstain ? 'abstain' : '')}><div><div className="eyebrow">DECISION SAFETY KERNEL</div><strong>{fusedRoute.abstain ? 'INSUFFICIENT EVIDENCE' : 'EVIDENCE STATE STABLE'}</strong><p>{fusedRoute.abstain ? 'Training cue: verify or seek corroboration before committing.' : 'Training cue: current evidence is sufficiently aligned for the exercise.'}</p></div><div className="advisor-grid"><div><small>FUSED CLAIM</small><b>{fusedRoute.label}</b></div><div><small>BELIEF</small><b>{fusedRoute.belief}%</b></div><div><small>DISBELIEF</small><b>{fusedRoute.disbelief}%</b></div><div><small>UNCERTAINTY</small><b>{fusedRoute.uncertainty}%</b></div><div><small>CONFLICT</small><b>{fusedRoute.conflict}%</b></div><div><small>SUFFICIENCY</small><b>{fusedRoute.sufficiency}%</b></div></div></div>
+                <ExplainabilityCard explainability={explainability}/>
                 <div className="trust-stack">{trustRows.map(function(r){return <div className="trust-card" key={r.id}><div><span>{r.id}</span><small>{r.source} · CALIBRATED {r.learned}%</small></div><strong>{r.trust}%</strong><div className="trust-bar"><span style={{width: r.trust + '%'}}></span></div></div>;})}</div>
                 <div className="panel-divider"></div>
                 <div className="skill-card"><div><div className="eyebrow">TRAINEE SKILL MODEL</div><strong>GLICKO-2 RATING</strong></div><div className="skill-values"><b>{Math.round(skill.rating)}</b><span>± {Math.round(2 * skill.rd)}</span></div><div className="skill-bar"><span style={{width: Math.max(6, Math.min(100, (skill.rating - 1000) / 10)) + '%'}}></span></div><small>RD {Math.round(skill.rd)} · σ {Number(skill.sigma).toFixed(3)} · {skill.rounds} scored rounds</small></div>
@@ -799,6 +809,31 @@ function BenchmarkPanel({ benchmark, summary, onRerun }) {
       <div className="eyebrow">REPRODUCIBILITY</div>
       <p className="panel-note">The seed is fixed for each run. Results can be regenerated locally from the benchmark engine without external services.</p>
     </aside>
+  </div>;
+}
+
+function ExplainabilityCard({ explainability }) {
+  var pivotal = explainability.pivotal;
+  var flip = explainability.flipCandidate;
+  return <div className="explain-card">
+    <div className="panel-head small">
+      <div><div className="eyebrow">CAUSAL DECISION TRACE</div><h3>Why did the model lean here?</h3></div>
+      <span className={'badge ' + (explainability.robustness.fragile ? 'ew' : 'live')}>{explainability.robustness.fragile ? 'FRAGILE' : 'STABLE'}</span>
+    </div>
+    <p className="panel-note explain-diagnosis">{explainability.diagnosis}</p>
+    <div className="explain-metrics">
+      <div><small>SELECTED</small><strong>{explainability.selectedCount}</strong></div>
+      <div><small>INDEPENDENT</small><strong>{explainability.independentSources}</strong></div>
+      <div><small>LEVERAGE</small><strong>{Math.round(explainability.robustness.leverage)}%</strong></div>
+    </div>
+    <div className="explain-block">
+      <div className="eyebrow">MOST PIVOTAL EVIDENCE</div>
+      {pivotal ? <div className="explain-row"><div><strong>{pivotal.id} · {pivotal.source}</strong><small>{pivotal.stance} · CONF {pivotal.confidence}% · FRESH {pivotal.freshness}%</small></div><b>{pivotal.impact >= 0 ? '+' : ''}{pivotal.impact} pts</b><span>{pivotal.labelChanged ? 'FLIPS CLAIM' : pivotal.abstentionChanged ? 'CHANGES ABSTENTION' : 'LOSS IF REMOVED'}</span></div> : <div className="empty-state">Select route evidence to compute source-level leverage.</div>}
+    </div>
+    <div className="explain-block">
+      <div className="eyebrow">COUNTERFACTUAL CHECK</div>
+      {flip ? <div className="explain-row"><div><strong>{flip.id} · {flip.source}</strong><small>Unselected report · {flip.stance} · FRESH {flip.freshness}%</small></div><b>{flip.probabilityDelta >= 0 ? '+' : ''}{flip.probabilityDelta} pts</b><span>{flip.labelChanged ? 'COULD FLIP CLAIM' : flip.abstentionChanged ? 'CHANGES ABSTENTION' : 'NO LABEL FLIP'}</span></div> : <div className="empty-state">No unselected route report currently provides a stronger counterfactual.</div>}
+    </div>
   </div>;
 }
 
