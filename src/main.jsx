@@ -113,6 +113,7 @@ function App() {
   });
   const channelRef = useRef(null);
   const sessionIdRef = useRef(makeId('TAB'));
+  const elapsedRef = useRef(elapsed);
 
   const scenario = useMemo(function() { return { ...SCENARIOS[scenarioKey], difficulty: scenarioDifficulty }; }, [scenarioKey, scenarioDifficulty]);
   const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic === 'route_echo'; }); }, [reports]);
@@ -127,7 +128,7 @@ function App() {
     return function() { clearInterval(timer); };
   }, [running]);
 
-  useEffect(function() { setReplayAt(elapsed); }, [elapsed]);
+  useEffect(function() { elapsedRef.current = elapsed; setReplayAt(elapsed); }, [elapsed]);
   useEffect(function() { try { localStorage.setItem('sentinel-grid-glicko2', JSON.stringify(skill)); } catch (_) {} }, [skill]);
   useEffect(function() { try { localStorage.setItem('sentinel-grid-source-history', JSON.stringify(sourceHistory)); } catch (_) {} }, [sourceHistory]);
   useEffect(function() { try { localStorage.setItem('sentinel-grid-exercise-history', JSON.stringify(exerciseHistory)); } catch (_) {} }, [exerciseHistory]);
@@ -170,7 +171,7 @@ function App() {
   };
 
   const addEvent = function(tag, text, shouldBroadcast) {
-    var event = { at: elapsed, tag: tag, text: text };
+    var event = { at: elapsedRef.current, tag: tag, text: text };
     setEvents(function(current) { return current.concat(event); });
     if (shouldBroadcast !== false) broadcast({ type: 'EVENT', event: event });
   };
