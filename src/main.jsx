@@ -209,7 +209,7 @@ function App() {
   const inject = function(kind, meta) {
     meta = meta || {};
     var remote = meta.remote === true;
-    var eventOptions = { silent: true };
+    var eventOptions = { silent: true, at: Number.isFinite(meta.at) ? meta.at : undefined };
     if (kind === 'delay') {
       setLatency(function(v) { return clamp(v + 18); });
       setFreshnessDecay(function(v) { return clamp(v + 10); });
