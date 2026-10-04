@@ -295,7 +295,152 @@ function DegradationSurfacePanel({ study, onRerun }) {
   </div>;
 }
 
-export default function ExperimentPanel({ experiment, onRerun, ablationStudy, onAblationRerun, degradationSurface, onDegradationRerun }) {
+
+function researchSnapshotCsv(snapshot) {
+  const rows = [
+    ['layer', 'metric', 'value', 'unit', 'interpretation'],
+    ['benchmark', 'sentinelAccuracy', snapshot.benchmark?.accuracy ?? '', 'percent', 'Overall synthetic benchmark accuracy'],
+    ['benchmark', 'sentinelFalseConfidence', snapshot.benchmark?.falseConfidenceRate ?? '', 'percent', 'Wrong high-confidence commitments'],
+    ['benchmark', 'sentinelCoverage', snapshot.benchmark?.coverage ?? '', 'percent', 'Cases receiving a committed prediction'],
+    ['benchmark', 'sentinelECE', snapshot.benchmark?.ece ?? '', 'ratio', 'Covered calibration error'],
+    ['resilience', 'attackStoppedRate', snapshot.resilience?.headline?.attackStoppedRate ?? '', 'percent', 'Synthetic attack cases correctly handled or deferred'],
+    ['resilience', 'falseConfidenceReduction', snapshot.resilience?.headline?.falseConfidenceReduction ?? '', 'points', 'Reduction vs confidence-only resilience baseline'],
+    ['experiment', 'finalAccuracyGain', snapshot.experiment?.headline?.finalAccuracyGain ?? '', 'points', 'Adaptive vs fixed, final four rounds'],
+    ['experiment', 'finalRatingGain', snapshot.experiment?.headline?.finalRatingGain ?? '', 'rating', 'Adaptive vs fixed final Glicko-2 rating'],
+    ['experiment', 'accuracyP', snapshot.experiment?.statistics?.comparisons?.accuracy?.pValueRandomization ?? '', 'p-value', 'Paired synthetic session comparison'],
+    ['ablation', 'largestAccuracyDrop', snapshot.ablation?.headline?.largestAccuracyDrop ?? '', 'points', 'Largest accuracy delta observed after mechanism removal'],
+    ['ablation', 'largestFalseConfidenceChange', snapshot.ablation?.headline?.largestFalseConfidenceChange ?? '', 'points', 'Largest absolute false-confidence sensitivity'],
+    ['surface', 'stressUncertainty', snapshot.surface?.headline?.stressUncertainty ?? '', 'percent', 'Winning probability uncertainty at the stress corner'],
+    ['surface', 'stressAbstentionRate', snapshot.surface?.headline?.stressAbstentionRate ?? '', 'percent', 'Abstention at the stress corner']
+  ];
+  return rows.map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(',')).join('\\n');
+}
+
+function ResearchEvidenceDashboard({ benchmark, resilience, experiment, ablation, surface }) {
+  const sentinel = benchmark?.methods?.sentinel || {};
+  const reliability = benchmark?.methods?.reliability || {};
+  const naive = benchmark?.methods?.naive || {};
+  const accuracyStats = experiment?.statistics?.comparisons?.accuracy;
+  const finalStats = experiment?.statistics?.comparisons?.finalAccuracy;
+  const snapshot = { benchmark: sentinel, resilience, experiment, ablation, surface };
+
+  const safetyRows = [
+    { label: 'Benchmark accuracy', sentinel: sentinel.accuracy, baseline: reliability.accuracy, suffix: '%' },
+    { label: 'False confidence', sentinel: sentinel.falseConfidenceRate, baseline: reliability.falseConfidenceRate, suffix: '%' },
+    { label: 'Coverage', sentinel: sentinel.coverage, baseline: reliability.coverage, suffix: '%' }
+  ];
+
+  const attackRows = Object.values(resilience?.byAttack || {});
+
+  return <section className="research-dashboard">
+    <div className="section-head">
+      <div>
+        <div className="eyebrow">RESEARCH EVIDENCE DASHBOARD · SYNTHETIC</div>
+        <h2>One evidence chain, five validation layers <span className="badge live">AUDITABLE</span></h2>
+      </div>
+      <div className="export-actions">
+        <button className="ghost-btn" onClick={function() {
+          const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+          downloadBlob(blob, 'sentinel-grid-research-snapshot.json');
+        }}>SNAPSHOT JSON</button>
+        <button className="ghost-btn" onClick={function() {
+          const blob = new Blob([researchSnapshotCsv(snapshot)], { type: 'text/csv;charset=utf-8' });
+          downloadBlob(blob, 'sentinel-grid-research-snapshot.csv');
+        }}>SNAPSHOT CSV</button>
+      </div>
+    </div>
+
+    <div className="research-chain">
+      <div><small>01 · BENCHMARK</small><strong>{sentinel.accuracy ?? '—'}%</strong><span>{benchmark?.totalRuns ?? '—'} cases · {sentinel.falseConfidenceRate ?? '—'}% false confidence</span></div>
+      <div><small>02 · RESILIENCE</small><strong>{resilience?.headline?.attackStoppedRate ?? '—'}%</strong><span>{resilience?.totalRuns ?? '—'} attack cases handled or deferred</span></div>
+      <div><small>03 · CURRICULUM</small><strong>{experiment?.headline?.finalAccuracyGain > 0 ? '+' : ''}{experiment?.headline?.finalAccuracyGain ?? '—'} pts</strong><span>{experiment?.sessions ?? '—'} virtual trainees · paired inference</span></div>
+      <div><small>04 · ABLATION</small><strong>{ablation?.headline?.largestAccuracyDrop > 0 ? '+' : ''}{ablation?.headline?.largestAccuracyDrop ?? '—'} pts</strong><span>{ablation?.runs ?? '—'} shared cases · mechanism sensitivity</span></div>
+      <div><small>05 · DEGRADATION</small><strong>{surface?.headline?.stressAbstentionRate ?? '—'}%</strong><span>Stress-corner abstention · {surface?.headline?.stressUncertainty ?? '—'}% uncertainty</span></div>
+    </div>
+
+    <div className="research-evidence-grid">
+      <div className="research-card">
+        <div className="experiment-chart-head"><div><div className="eyebrow">EVIDENCE PANEL A</div><h3>Baseline → Sentinel safety profile</h3></div><span>Benchmark suite</span></div>
+        <PlotlyFigure
+          data={[
+            {
+              x: safetyRows.map(row => row.label),
+              y: safetyRows.map(row => row.baseline),
+              name: 'Reliability × freshness',
+              type: 'bar',
+              hovertemplate: '%{x}<br>Baseline %{y:.1f}%<extra></extra>'
+            },
+            {
+              x: safetyRows.map(row => row.label),
+              y: safetyRows.map(row => row.sentinel),
+              name: 'Sentinel Ω',
+              type: 'bar',
+              hovertemplate: '%{x}<br>Sentinel %{y:.1f}%<extra></extra>'
+            }
+          ]}
+          layout={{
+            barmode: 'group',
+            margin: { l: 48, r: 18, t: 35, b: 65 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(8,19,27,.55)',
+            font: { family: 'Manrope', color: '#91a8b3', size: 9 },
+            xaxis: { tickfont: { family: 'DM Mono', size: 8 }, gridcolor: '#19323e' },
+            yaxis: { title: 'Percent', range: [0,100], gridcolor: '#19323e' },
+            legend: { orientation: 'h', y: 1.12, font: { family: 'DM Mono', size: 8 } }
+          }}
+        />
+      </div>
+
+      <div className="research-card">
+        <div className="experiment-chart-head"><div><div className="eyebrow">EVIDENCE PANEL B</div><h3>Red-team attack containment</h3></div><span>Higher = more attacks stopped</span></div>
+        <PlotlyFigure
+          data={[{
+            x: attackRows.map(row => row.label),
+            y: attackRows.map(row => row.attackStoppedRate),
+            type: 'bar',
+            text: attackRows.map(row => row.attackStoppedRate + '%'),
+            textposition: 'outside',
+            hovertemplate: '%{x}<br>Stopped %{y:.1f}%<br>False-confidence reduction %{customdata:.1f} pts<extra></extra>',
+            customdata: attackRows.map(row => row.falseConfidenceReduction)
+          }]}
+          layout={{
+            margin: { l: 48, r: 18, t: 35, b: 105 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(8,19,27,.55)',
+            font: { family: 'Manrope', color: '#91a8b3', size: 9 },
+            xaxis: { tickangle: -22, tickfont: { family: 'DM Mono', size: 8 }, gridcolor: '#19323e' },
+            yaxis: { title: 'Stopped (%)', range: [0,100], gridcolor: '#19323e' }
+          }}
+        />
+      </div>
+    </div>
+
+    <div className="research-ledger">
+      <div className="research-ledger-head">
+        <div><div className="eyebrow">EVIDENCE LEDGER</div><h3>What each layer demonstrates</h3></div>
+        <span>Do not read synthetic statistics as human evidence</span>
+      </div>
+      {[
+        ['Benchmark', 'Compares fusion families under baseline, delay, loss and conflict conditions.', 'algorithmic comparison'],
+        ['Red-team', 'Falsification harness measures whether stale, duplicated, contradictory or missing evidence produces false confidence.', 'resilience / safety sensitivity'],
+        ['Curriculum', 'Tests fixed vs adaptive exercise policies over seeded virtual trainees with paired uncertainty estimates.', 'simulator behavior'],
+        ['Ablation', 'Removes mechanisms from the same generated case stream to expose sensitivity to freshness, learning, abstention and fusion.', 'mechanism sensitivity'],
+        ['Degradation surface', 'Maps communication quality and contradiction pressure to probability, uncertainty and abstention phase.', 'response boundary']
+      ].map(function(row) {
+        return <div className="research-ledger-row" key={row[0]}>
+          <b>{row[0]}</b><span>{row[1]}</span><em>{row[2]}</em>
+        </div>;
+      })}
+    </div>
+
+    <div className="research-claim">
+      <div><span className="claim-icon">◎</span><div><strong>Current defensible claim</strong><p>The prototype demonstrates an auditable, reproducible decision-intelligence pipeline whose uncertainty, abstention and mechanism sensitivity can be stress-tested in a synthetic environment.</p></div></div>
+      <div><span className="claim-icon">!</span><div><strong>Explicit boundary</strong><p>{accuracyStats ? 'Adaptive/fixed accuracy difference: ' + accuracyStats.difference.toFixed(1) + ' pts; paired p=' + formatP(accuracyStats.pValueRandomization) + '. ' : ''}{finalStats ? 'Final-period difference: ' + finalStats.difference.toFixed(1) + ' pts with 95% CI [' + finalStats.confidenceInterval95.lower.toFixed(1) + ', ' + finalStats.confidenceInterval95.upper.toFixed(1) + ']. ' : ''}These are simulator uncertainty estimates, not participant-study conclusions.</p></div>
+    </div>
+  </section>;
+}
+
+export default function ExperimentPanel({ experiment, onRerun, ablationStudy, onAblationRerun, degradationSurface, onDegradationRerun, benchmark, resilience }) {
   const figureBase = useMemo(() => ({
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(8,19,27,.55)',
@@ -371,6 +516,7 @@ export default function ExperimentPanel({ experiment, onRerun, ablationStudy, on
 
   return <div className="experiment-layout">
     <section className="experiment-main">
+      <ResearchEvidenceDashboard benchmark={benchmark} resilience={resilience} experiment={experiment} ablation={ablationStudy} surface={degradationSurface} />
       <div className="section-head">
         <div><div className="eyebrow">SYNTHETIC CURRICULUM EXPERIMENT · PLOTLY</div><h2>Learning and adaptation laboratory <span className="badge live">REPRODUCIBLE</span></h2></div>
         <div className="export-actions">
