@@ -12,7 +12,8 @@
     "viz:rerun": "python3 viz/rerun_sentinel.py",
     "viz:open3d": "python3 viz/open3d_sentinel.py",
     "viz:3d": "python3 viz/rerun_sentinel.py",
-    "verify": "npm test && python3 -m py_compile viz/rerun_sentinel.py viz/open3d_sentinel.py && npm run build",
+    "viz:live": "python3 viz/realtime_sentinel.py",
+    "verify": "npm test && python3 -m py_compile viz/rerun_sentinel.py viz/open3d_sentinel.py viz/realtime_sentinel.py && npm run build",
     "viz:check": "python3 -c \"import rerun, open3d, numpy; print(f'Rerun {rerun.__version__} | Open3D {open3d.__version__} | NumPy {numpy.__version__}')\""
   },
   "dependencies": {
