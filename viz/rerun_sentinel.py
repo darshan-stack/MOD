@@ -109,7 +109,7 @@ def main() -> None:
     latency = float(bundle.get("network", {}).get("latency", 0))
     dropout = float(bundle.get("network", {}).get("dropout", 0))
     conflict = float(bundle.get("network", {}).get("conflict", 0))
-    rr.set_time_sequence("exercise", 0)
+    rr.set_time("exercise", sequence=0)
     rr.log("telemetry/network_health", rr.Scalar(network), static=False)
     rr.log("telemetry/latency", rr.Scalar(latency), static=False)
     rr.log("telemetry/dropout", rr.Scalar(dropout), static=False)
@@ -118,12 +118,12 @@ def main() -> None:
     # Event/decision reconstruction on the same timeline.
     for event in bundle.get("events", []):
         t = int(event.get("at", 0))
-        rr.set_time_sequence("exercise", t)
+        rr.set_time("exercise", sequence=t)
         rr.log("timeline/events", rr.TextLog(f"{event.get('tag', 'EVENT')}: {event.get('text', '')}"))
 
     for decision in bundle.get("decisions", []):
         t = int(decision.get("at", 0))
-        rr.set_time_sequence("exercise", t)
+        rr.set_time("exercise", sequence=t)
         rr.log(
             "timeline/decisions",
             rr.TextLog(
