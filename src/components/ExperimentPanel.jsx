@@ -324,6 +324,9 @@ function ResearchEvidenceDashboard({ benchmark, resilience, experiment, ablation
   const finalStats = experiment?.statistics?.comparisons?.finalAccuracy;
   const snapshot = { benchmark: sentinel, resilience, experiment, ablation, surface };
 
+  const accuracyStats = experiment?.statistics?.comparisons?.accuracy;
+  const finalStats = experiment?.statistics?.comparisons?.finalAccuracy;
+
   const safetyRows = [
     { label: 'Benchmark accuracy', sentinel: sentinel.accuracy, baseline: reliability.accuracy, suffix: '%' },
     { label: 'False confidence', sentinel: sentinel.falseConfidenceRate, baseline: reliability.falseConfidenceRate, suffix: '%' },
@@ -435,7 +438,7 @@ function ResearchEvidenceDashboard({ benchmark, resilience, experiment, ablation
 
     <div className="research-claim">
       <div><span className="claim-icon">◎</span><div><strong>Current defensible claim</strong><p>The prototype demonstrates an auditable, reproducible decision-intelligence pipeline whose uncertainty, abstention and mechanism sensitivity can be stress-tested in a synthetic environment.</p></div></div>
-      <div><span className="claim-icon">!</span><div><strong>Explicit boundary</strong><p>{accuracyStats ? 'Adaptive/fixed accuracy difference: ' + accuracyStats.difference.toFixed(1) + ' pts; paired p=' + formatP(accuracyStats.pValueRandomization) + '. ' : ''}{finalStats ? 'Final-period difference: ' + finalStats.difference.toFixed(1) + ' pts with 95% CI [' + finalStats.confidenceInterval95.lower.toFixed(1) + ', ' + finalStats.confidenceInterval95.upper.toFixed(1) + ']. ' : ''}These are simulator uncertainty estimates, not participant-study conclusions.</p></div>
+      <div><span className="claim-icon">!</span><div><strong>Explicit boundary</strong><p>{accuracyStats ? 'Adaptive/fixed accuracy difference: ' + accuracyStats.difference.toFixed(1) + ' pts; paired p=' + formatP(accuracyStats.pValueRandomization) + '. ' : ''}{finalStats ? 'Final-period difference: ' + finalStats.difference.toFixed(1) + ' pts with 95% CI [' + finalStats.confidenceInterval95.lower.toFixed(1) + ', ' + finalStats.confidenceInterval95.upper.toFixed(1) + ']. ' : ''}These are simulator uncertainty estimates, not participant-study conclusions.</p></div></div>
     </div>
   </section>;
 }
