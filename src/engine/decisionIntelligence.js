@@ -208,14 +208,19 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
     return {
       label: 'UNKNOWN',
       confidence: 0,
+      rawConfidence: 0,
+      probability: 0,
+      rawProbability: 0,
       belief: 0,
       disbelief: 0,
-      uncertainty: 1,
+      uncertainty: 100,
       conflict: 0,
       sufficiency: 0,
       abstain: true,
       method: 'SUBJECTIVE_LOGIC',
+      calibrationTemperature: 1,
       distribution: [],
+      rawDistribution: [],
       contributors: []
     };
   }
@@ -261,8 +266,8 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
   const averageEvidenceStrength = weighted.length
     ? clamp(totalWeight / weighted.length)
     : 0;
-  const uncertainty = clamp(1 - averageEvidenceStrength);
-  const committedMass = 1 - uncertainty;
+  const evidenceUncertainty = clamp(1 - averageEvidenceStrength);
+  const committedMass = 1 - evidenceUncertainty;
 
   const candidates = labels.map(label => {
     const labelWeight = weighted.reduce(
@@ -273,11 +278,11 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
     const belief = committedMass * share;
     const disbelief = committedMass * (1 - share);
     const baseRate = 1 / Math.max(labels.length, 1);
-    const projected = clamp(belief + baseRate * uncertainty);
+    const projected = clamp(belief + baseRate * evidenceUncertainty);
 
     return {
       label,
-      opinion: { belief, disbelief, uncertainty, baseRate },
+      opinion: { belief, disbelief, uncertainty: evidenceUncertainty, baseRate },
       projected,
       contributors: weighted
         .filter(item => item.report.stance === label)
@@ -292,7 +297,6 @@ export function subjectiveLogicFuse(reports, channelHealth = 1, history = {}) {
   }).sort((a, b) => b.projected - a.projected);
 
   const best = candidates[0];
-  const uncertainty = best.opinion.uncertainty;
   const sufficiency = clamp(
     0.50 * best.projected +
     0.22 * Math.min(independentSources / 2, 1) +
