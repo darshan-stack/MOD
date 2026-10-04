@@ -226,30 +226,42 @@ export function runExperimentStatistics(
   } = {}
 ) {
   const groups = bySession(pairedRows);
-  const fixedAccuracyBySession = groups.map(function([session, rows]) ({
-    session,
-    value: mean(rows.map(row => Number(row.fixedCorrect || 0)))
-  }));
-  const adaptiveAccuracyBySession = groups.map(function([session, rows]) ({
-    session,
-    value: mean(rows.map(row => Number(row.adaptiveCorrect || 0)))
-  }));
-  const fixedBrierBySession = groups.map(function([session, rows]) ({
-    session,
-    value: mean(rows.map(row => Number(row.fixedBrier || 0)))
-  }));
-  const adaptiveBrierBySession = groups.map(function([session, rows]) ({
-    session,
-    value: mean(rows.map(row => Number(row.adaptiveBrier || 0)))
-  }));
-  const fixedConfidenceBySession = groups.map(function([session, rows]) ({
-    session,
-    value: mean(rows.map(row => Number(row.fixedConfidence || 0)))
-  }));
-  const adaptiveConfidenceBySession = groups.map(function([session, rows]) ({
-    session,
-    value: mean(rows.map(row => Number(row.adaptiveConfidence || 0)))
-  }));
+  const fixedAccuracyBySession = groups.map(function([session, rows]) {
+    return {
+      session,
+      value: mean(rows.map(row => Number(row.fixedCorrect || 0)))
+    };
+  });
+  const adaptiveAccuracyBySession = groups.map(function([session, rows]) {
+    return {
+      session,
+      value: mean(rows.map(row => Number(row.adaptiveCorrect || 0)))
+    };
+  });
+  const fixedBrierBySession = groups.map(function([session, rows]) {
+    return {
+      session,
+      value: mean(rows.map(row => Number(row.fixedBrier || 0)))
+    };
+  });
+  const adaptiveBrierBySession = groups.map(function([session, rows]) {
+    return {
+      session,
+      value: mean(rows.map(row => Number(row.adaptiveBrier || 0)))
+    };
+  });
+  const fixedConfidenceBySession = groups.map(function([session, rows]) {
+    return {
+      session,
+      value: mean(rows.map(row => Number(row.fixedConfidence || 0)))
+    };
+  });
+  const adaptiveConfidenceBySession = groups.map(function([session, rows]) {
+    return {
+      session,
+      value: mean(rows.map(row => Number(row.adaptiveConfidence || 0)))
+    };
+  });
 
   const brierImprovement = fixedBrierBySession.map((row, index) =>
     row.value - adaptiveBrierBySession[index].value
