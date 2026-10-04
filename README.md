@@ -106,7 +106,7 @@ The decision-intelligence kernel uses:
 - SHA-256 exercise fingerprinting for tamper-evident AAR integrity checks.
 - Deterministic benchmark laboratory comparing Sentinel Ω against confidence-only and confidence×freshness baselines under controlled degradation.
 - Red-team resilience laboratory that deterministically attacks the information layer with stale deception, conflict bursts, true-source dropout, duplicate-source echoes and delayed contradictions, measuring false-confidence exposure and explicit abstention.
-- Synthetic Curriculum Experiment Lab running seeded multi-session comparisons between fixed and adaptive curricula, with learning curves, difficulty-response plots, calibration diagrams, adaptive-gain heatmaps and trial-level CSV/JSON export.
+- Synthetic Curriculum Experiment Lab running seeded multi-session comparisons between fixed and adaptive curricula, with learning curves, difficulty-response plots, calibration diagrams, adaptive-gain heatmaps, session-level bootstrap confidence intervals, paired randomization tests, effect sizes and trial-level CSV/JSON export.
 
 See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, design rationale and citations.
 
@@ -123,8 +123,10 @@ See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, de
 9. In Director, press **GENERATE NEXT EXERCISE** to demonstrate the adaptive training loop.
 10. Open **Benchmark Lab** to reproduce the controlled 400-case comparison and inspect accuracy, selective accuracy, false-confidence, Brier, ECE and abstention metrics.
 11. Open **Red-team Resilience** to replay the five deterministic attack classes and show how often the system stops an adversarial information state by correcting or abstaining.
-12. In **Exercise Director**, use **GENERATE NEXT EXERCISE** to create a seeded procedural scenario from the Scenario DSL; inspect the generated evidence count, network degradation and event stream.
-13. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views. For a saved Rerun recording, use `npm run viz:rerun -- --save artifacts/sentinel-grid.rrd`.
+12. Open the **Statistical Inference** panel inside the experiment lab to show 95% bootstrap intervals, paired sign-randomization p-values and effect sizes.
+13. Use the experiment JSON/CSV exports as a reproducible lab record; the statistical layer treats each virtual trainee/session as the resampling unit.
+14. In **Exercise Director**, use **GENERATE NEXT EXERCISE** to create a seeded procedural scenario from the Scenario DSL; inspect the generated evidence count, network degradation and event stream.
+15. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views. For a saved Rerun recording, use `npm run viz:rerun -- --save artifacts/sentinel-grid.rrd`.
 
 The system is intentionally synthetic and software-only. It is not connected to weapons, operational networks or real-world targeting systems.
 
@@ -138,3 +140,18 @@ The resilience harness is designed as a falsification layer rather than a perfor
 The generator lives in `src/engine/scenarioGenerator.js`. A scenario is generated from a versioned DSL containing phase templates, objectives, synthetic source families, route/non-route topics and minimum evidence constraints.
 
 Every generated exercise includes a deterministic seed and validation metadata. The generator guarantees minimum route evidence and independent source coverage before returning a scenario. The current training loop uses the procedural generator after adaptive focus selection, while the original ALPHA-07, CIPHER-11 and NORTHSTAR-03 templates remain available as fixed reference cases.
+
+
+## Statistical inference layer
+
+The curriculum experiment now reports session-level uncertainty rather than only point estimates. Each virtual trainee is treated as a repeated-measures unit; the bootstrap resamples complete trainee sessions and the paired sign-randomization test evaluates the adaptive-versus-fixed difference without assuming normality.
+
+The exported experiment JSON contains:
+- percentile bootstrap 95% confidence intervals;
+- paired randomization p-values;
+- Cohen's h for proportion differences;
+- paired Cohen's dz for continuous paired metrics;
+- round-level accuracy confidence bands;
+- the exact seed, session count and round count used to reproduce the run.
+
+These statistics describe the behavior of the synthetic simulator. They are not evidence of human learning, operational effectiveness or statistical significance in a participant study.
