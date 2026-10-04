@@ -26,6 +26,8 @@ const BASE_EVENTS = [
 ];
 
 const DECISION_TYPES = ['HOLD', 'REROUTE', 'REPORT', 'VERIFY'];
+const ROLE_DOMAINS = { OC: ['ALL'], LAND: ['LAND'], AIR: ['AIR'], CYBER: ['CYBER'], EW: ['EW'] };
+const ROLE_LABELS = { OC: 'Overall Commander', LAND: 'Land Cell', AIR: 'Air Cell', CYBER: 'Cyber Cell', EW: 'EW Cell' };
 
 const cloneReports = () => BASE_REPORTS.map(function(r) { return { ...r }; });
 const clamp = function(v, min, max) { min = min === undefined ? 0 : min; max = max === undefined ? 100 : max; return Math.max(min, Math.min(max, Number(v))); };
@@ -182,13 +184,31 @@ function App() {
     if (!options || !options.silent) broadcast({ type: 'EVENT', event: event });
   };
 
+  const roleDomains = ROLE_DOMAINS[participantRole] || ROLE_DOMAINS.OC;
   const visibleReports = useMemo(function() {
-    return selectedDomain === 'ALL' ? reports : reports.filter(function(r) { return r.domain === selectedDomain; });
-  }, [reports, selectedDomain]);
+    var roleFiltered = roleDomains.indexOf('ALL') >= 0 ? reports : reports.filter(function(r) { return roleDomains.indexOf(r.domain) >= 0; });
+    return selectedDomain === 'ALL' ? roleFiltered : roleFiltered.filter(function(r) { return r.domain === selectedDomain; });
+  }, [reports, selectedDomain, participantRole]);
 
   const trustRows = useMemo(function() {
     return reports.map(function(r) { return { ...r, trust: trustScore(r) }; }).sort(function(a, b) { return b.trust - a.trust; });
   }, [reports]);
+
+  const simulateMessageDelivery = function(msg) {
+    var dropChance = Math.min(0.7, dropout / 150 + (100 - netHealth) / 500);
+    var delayMs = Math.round(Math.min(12000, latency * 1000 * 0.35) + Math.random() * 800);
+    if (Math.random() < dropChance) {
+      addEvent('TEAM', 'Message dropped by simulated team network · ' + msg.id);
+      setNetworkStatus('DEGRADED');
+      return;
+    }
+    setNetworkStatus(delayMs > 2500 ? 'HIGH LATENCY' : 'CONNECTED');
+    setTimeout(function() {
+      var delivered = { ...msg, deliveredAt: elapsed + Math.max(1, Math.round(delayMs / 1000)) };
+      setMessages(function(current) { return [delivered].concat(current.filter(function(m) { return m.id !== msg.id; })); });
+      broadcast({ type: 'TEAM_MESSAGE', message: delivered });
+    }, delayMs);
+  };
 
   const metrics = useMemo(function() {
     var count = decisions.length;
@@ -315,10 +335,10 @@ function App() {
 
   const sendMessage = function() {
     if (!messageText.trim()) return;
-    var msg = { id: 'M-' + Date.now(), at: elapsed, actor: 'Arjun Mehta', initials: 'AM', text: messageText.trim() };
+    var msg = { id: 'M-' + Date.now(), at: elapsed, actor: 'Arjun Mehta', initials: 'AM', text: messageText.trim(), delivery: 'PENDING' };
     setMessages(function(current) { return [msg].concat(current); });
-    addEvent('TEAM', 'You → ALPHA CELL: ' + msg.text);
-    broadcast({ type: 'TEAM_MESSAGE', message: msg });
+    addEvent('TEAM', 'You → ALPHA CELL: ' + msg.text + ' · transmission started');
+    simulateMessageDelivery(msg);
     setMessageText('');
   };
 
