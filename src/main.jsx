@@ -132,6 +132,7 @@ function App() {
         setEvents(function(current) { return current.some(function(e) { return e.id && e.id === p.event.id; }) ? current : current.concat(p.event); });
       }
       if (p.type === 'CLOCK_TICK') setElapsed(p.elapsed);
+      if (p.type === 'CLOCK_CONTROL') setRunning(p.running);
       if (p.type === 'PARAM') {
         var setters = { netHealth: setNetHealth, latency: setLatency, dropout: setDropout, conflict: setConflict, freshnessDecay: setFreshnessDecay };
         if (setters[p.field]) setters[p.field](p.value);
@@ -251,6 +252,11 @@ function App() {
     var setters = { netHealth: setNetHealth, latency: setLatency, dropout: setDropout, conflict: setConflict, freshnessDecay: setFreshnessDecay };
     if (setters[field]) setters[field](Number(value));
     if (!remote) broadcast({ type: 'PARAM', field: field, value: Number(value) });
+  };
+
+  const setExerciseRunning = function(nextRunning, remote) {
+    setRunning(nextRunning);
+    if (!remote) broadcast({ type: 'CLOCK_CONTROL', running: nextRunning });
   };
 
   const updateSimulationOptions = function(nextAuto, nextSpeed) {
@@ -392,7 +398,7 @@ function App() {
       </aside>
 
       <main className="main">
-        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setRunning(function(v){return !v;})}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
+        <header className="topbar"><div><div className="breadcrumb">EXERCISE / {scenarioKey} / <span>{activeTab.toUpperCase()}</span></div><h1>{activeTab === 'cockpit' ? 'Decision cockpit' : activeTab === 'team' ? 'Team room' : activeTab === 'aar' ? 'AAR & replay' : 'Exercise director'}</h1></div><div className="top-actions"><div className="sync"><span className="sync-dot"></span>{mode.toUpperCase()} <small>LOCAL / AUDITABLE</small></div><button className="ghost-btn" onClick={() => setExerciseRunning(!running)}>{running ? 'PAUSE' : 'RESUME'}</button><button className="avatar">AM</button></div></header>
 
         {mode === 'instructor' && activeTab === 'cockpit' && <section className="director-banner"><div><div className="eyebrow">INSTRUCTOR VIEW</div><strong>Observe the exercise without revealing hidden ground truth.</strong><span>Live decision traces and degradation state are visible to the director.</span></div><button className="primary-btn" onClick={() => setActiveTab('director')}>OPEN DIRECTOR ↗</button></section>}
 
