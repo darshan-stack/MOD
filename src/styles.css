@@ -623,3 +623,22 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
   .experiment-stats-grid{grid-template-columns:1fr}
   .experiment-stats-head{align-items:flex-start;gap:8px;flex-direction:column}
 }
+
+
+/* Component ablation laboratory */
+.ablation-panel{margin-top:14px;border:1px solid #1d3948;background:linear-gradient(180deg,#0b1821,#09151d);border-radius:6px;padding:14px}
+.ablation-hero{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:11px 0}
+.ablation-hero>div{border:1px solid #203e4c;background:#0c1b25;padding:12px;border-radius:5px;min-height:88px}
+.ablation-hero small{display:block;font:8px 'DM Mono';letter-spacing:.8px;color:#718c97}
+.ablation-hero strong{display:block;font:18px 'DM Mono';color:#d9efed;margin:7px 0 3px}
+.ablation-hero span{display:block;font:8px 'DM Mono';color:#68838e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ablation-table{border:1px solid #193442;border-radius:5px;overflow:auto;background:#08131a}
+.ablation-row{display:grid;grid-template-columns:2.05fr .72fr .72fr .88fr .72fr .72fr .65fr;min-width:820px;gap:6px;align-items:center;border-top:1px solid #17303b;padding:10px 8px;font:8px 'DM Mono';color:#9aafb6}
+.ablation-row:first-child{border-top:0}
+.ablation-row>span:not(:first-child){text-align:right}
+.ablation-row strong{display:block;font:9px Manrope;color:#d5e7ea}
+.ablation-row small{display:block;font:7px 'DM Mono';color:#617b86;line-height:1.35;margin-top:3px}
+.ablation-head{background:#0b1820;color:#5f7a86;text-transform:uppercase;letter-spacing:.6px}
+.ablation-note{margin-top:10px;padding:10px 11px;border-left:2px solid #5b6a45;background:#111a16;color:#748c80;font:8px 'DM Mono';line-height:1.55}
+.ablation-note strong{color:#adc8bb}
+@media(max-width:900px){.ablation-hero{grid-template-columns:1fr}}
