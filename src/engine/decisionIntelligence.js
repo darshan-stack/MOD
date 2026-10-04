@@ -10,7 +10,8 @@
  *
  * The Subjective Logic representation follows Jøsang's opinion model:
  *   omega = (belief, disbelief, uncertainty, baseRate)
- * and uses a conservative consensus-style fusion for independent reports.
+ * and uses a conservative weighted opinion-pooling rule for this trainer.
+ * Pairwise consensus fusion is retained separately for kernel validation.
  *
  * Glicko-2 implementation follows Mark Glickman's published algorithm.
  */
