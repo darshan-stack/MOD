@@ -100,6 +100,9 @@ function App() {
   const [replayAt, setReplayAt] = useState(elapsed);
   const [ledgerFingerprint, setLedgerFingerprint] = useState('PENDING');
   const [benchmarkRun, setBenchmarkRun] = useState(1);
+  const [exerciseHistory, setExerciseHistory] = useState(function() {
+    try { return JSON.parse(localStorage.getItem('sentinel-grid-exercise-history') || 'null') || {}; } catch (_) { return {}; }
+  });
   const benchmark = useMemo(function() { return runBenchmark({ runsPerCondition: 100, seed: 20261003 + benchmarkRun - 1 }); }, [benchmarkRun]);
   const benchmarkSummary = useMemo(function() { return benchmarkHeadline(benchmark); }, [benchmark]);
   const [skill, setSkill] = useState(function() {
@@ -127,6 +130,7 @@ function App() {
   useEffect(function() { setReplayAt(elapsed); }, [elapsed]);
   useEffect(function() { try { localStorage.setItem('sentinel-grid-glicko2', JSON.stringify(skill)); } catch (_) {} }, [skill]);
   useEffect(function() { try { localStorage.setItem('sentinel-grid-source-history', JSON.stringify(sourceHistory)); } catch (_) {} }, [sourceHistory]);
+  useEffect(function() { try { localStorage.setItem('sentinel-grid-exercise-history', JSON.stringify(exerciseHistory)); } catch (_) {} }, [exerciseHistory]);
   useEffect(function() { sha256Fingerprint({ scenarioKey: scenarioKey, reports: reports, decisions: decisions, events: events, messages: messages }).then(function(hash) { setLedgerFingerprint(hash.slice(0, 24).toUpperCase()); }); }, [scenarioKey, reports, decisions, events, messages]);
 
   useEffect(function() {
@@ -260,6 +264,7 @@ function App() {
     setElapsed(0);
     setReplayAt(0);
     setRunning(true);
+    setExerciseHistory(function(current) { return { ...current, [key]: Number(current[key] || 0) + 1 }; });
     setEvents([{ at: 0, tag: 'SYSTEM', text: 'Loaded ' + s.name + '. Ground truth remains hidden until AAR.' }]);
     if (!remote) broadcast({ type: 'SCENARIO', key: key });
   };
@@ -332,10 +337,12 @@ function App() {
   };
 
   const generateNextExercise = function() {
-    var nextChoice = adaptiveChoice(focus, {}, Math.max(decisions.length + 1, 1));
+    var roundsObserved = Object.values(exerciseHistory).reduce(function(sum, count) { return sum + Number(count || 0); }, 0);
+    var nextChoice = adaptiveChoice(focus, exerciseHistory, Math.max(roundsObserved + 1, decisions.length + 1));
     var targetDifficulty = clamp(nextChoice.difficulty + focus.length - 1, 1, 10);
     setScenarioKey(nextChoice.key);
     setScenarioDifficulty(targetDifficulty);
+    setExerciseHistory(function(current) { return { ...current, [nextChoice.key]: Number(current[nextChoice.key] || 0) + 1 }; });
     setSelectedEvidence([]);
     setDecisionText('');
     setTeamChannelDegraded(true);
