@@ -18,11 +18,12 @@ Web-native multi-domain decision-making trainer for degraded communication envir
 ## Run
 
 ~~~bash
-npm install
+npm ci
+npm run verify
 npm run dev
 ~~~
 
-Open the Vite URL shown in the terminal.
+Run `npm run verify` first. It checks the engine suite, Python syntax and production build before the interactive demo. Then open the Vite URL shown in the terminal.
 
 For the presentation, open the same URL in two browser tabs. Use one as the instructor/director and one as the trainee/team seat. Inject a delay or conflicting report, transmit a team message, log an evidence-linked decision, then open AAR and move the replay slider.
 
