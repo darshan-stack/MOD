@@ -85,7 +85,6 @@ def main() -> None:
     for i, report in enumerate(reports):
         pos = source_position(i, report)
         positions.append(pos)
-        labels.append(report.get("source", "SOURCE"))
         colors.append([120, 190, 210] if report.get("state") == "live" else [180, 150, 100])
         radii.append(0.12 + 0.12 * float(report.get("confidence", 0)) / 100.0)
 
