@@ -566,3 +566,31 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
 }
 
 .director-generated-meta{display:block;font:8px 'DM Mono';color:#5f7b87;margin-top:5px;letter-spacing:.3px}
+
+/* Synthetic experiment laboratory */
+.experiment-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px}
+.experiment-main,.experiment-side{border:1px solid #1c3847;background:linear-gradient(180deg,#0a1721,#08131b);border-radius:7px;box-shadow:var(--shadow);padding:20px}
+.experiment-side{align-self:start}
+.experiment-banner{display:flex;justify-content:space-between;align-items:center;gap:20px;border:1px solid #294756;background:linear-gradient(90deg,#10242d,#0b171f);padding:14px 16px;border-radius:6px;margin-bottom:16px}
+.experiment-banner strong{display:block;font-size:13px}.experiment-banner span{display:block;font:9px 'DM Mono';color:#758d97;margin-top:4px}
+.experiment-hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:18px}
+.experiment-hero>div{border:1px solid #203e4c;background:#0c1b25;padding:15px;border-radius:6px;min-height:104px}
+.experiment-hero small{display:block;font:8px 'DM Mono';letter-spacing:1px;color:#76909b}
+.experiment-hero strong{display:block;margin:8px 0 3px;font-size:21px;color:#c9efea;line-height:1.1}
+.experiment-hero span{font-size:9px;color:#718893}
+.experiment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.experiment-chart-card{border:1px solid #1c3948;background:#0a1720;border-radius:6px;padding:9px;min-width:0}
+.experiment-chart-head{display:flex;justify-content:space-between;align-items:flex-end;padding:4px 6px 0}
+.experiment-chart-head h3{margin:3px 0 0;font-size:12px}
+.experiment-chart-head>span{font:8px 'DM Mono';color:#627d88}
+.experiment-plot{width:100%;height:320px}
+.experiment-note{margin-top:12px;border:1px solid #1d3948;background:#0b1821;padding:13px 14px;border-radius:6px;color:#75909b;font-size:10px;line-height:1.55}
+.experiment-note strong{color:#b9d0d7}
+@media (max-width:1280px){
+  .experiment-layout{grid-template-columns:1fr}
+  .experiment-side{display:none}
+}
+@media (max-width:900px){
+  .experiment-grid{grid-template-columns:1fr}
+  .experiment-hero{grid-template-columns:1fr 1fr}
+}
