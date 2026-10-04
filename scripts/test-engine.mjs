@@ -165,6 +165,17 @@ const csv = experimentCsv(experiment);
 assert(csv.split('\n').length === experiment.pairedRows.length + 1);
 assert(csv.includes('fixedBrier,adaptiveBrier,fixedFinalRating,adaptiveFinalRating'));
 
+
+// Procedural route-topic regression checks.
+for (const seed of [1, 17, 20261005, 20261007, 429496729]) {
+  const generated = generateScenario({ seed, difficulty: 6, variant: 3 });
+  const validation = validateScenario(generated);
+  assert.equal(validation.valid, true);
+  const routeEvidence = generated.reports.filter(r => r.topic && r.topic.startsWith('route_'));
+  assert(routeEvidence.length >= SCENARIO_DSL.constraints.minRouteReports);
+  assert(new Set(routeEvidence.map(r => r.source)).size >= SCENARIO_DSL.constraints.minIndependentRouteSources);
+}
+
 console.log('statistical experiment checks: PASS');
 console.log(JSON.stringify({
   accuracy: experiment.statistics.comparisons.accuracy,
