@@ -30,6 +30,19 @@ const downloadBlob = function(blob, filename) {
   window.setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 };
 
+const formatP = function(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  const p = Number(value);
+  return p < 0.001 ? '<0.001' : p.toFixed(3);
+};
+
+const formatEffect = function(row) {
+  if (!row || !row.effectSize) return '—';
+  return row.effectSize.value === null || row.effectSize.value === undefined
+    ? '—'
+    : Number(row.effectSize.value).toFixed(3);
+};
+
 export default function ExperimentPanel({ experiment, onRerun }) {
   const figureBase = useMemo(() => ({
     paper_bgcolor: 'rgba(0,0,0,0)',
@@ -46,6 +59,63 @@ export default function ExperimentPanel({ experiment, onRerun }) {
   const difficulty = experiment.difficultyCurve;
   const calibration = experiment.calibration;
   const heatmap = experiment.gainHeatmap;
+  const statistics = experiment.statistics;
+  const publicationRows = statistics?.publicationTable || [];
+  const accuracyStats = statistics?.comparisons?.accuracy;
+  const finalAccuracyStats = statistics?.comparisons?.finalAccuracy;
+
+  const learningTraces = [
+    {
+      x: learning.map(x => x.round),
+      y: learning.map(x => x.fixedAccuracyCI95?.[0] ?? x.fixedAccuracy),
+      showlegend: false,
+      line: { width: 0 },
+      hoverinfo: 'skip'
+    },
+    {
+      x: learning.map(x => x.round),
+      y: learning.map(x => x.fixedAccuracyCI95?.[1] ?? x.fixedAccuracy),
+      name: 'Fixed 95% CI',
+      mode: 'lines',
+      fill: 'tonexty',
+      fillcolor: 'rgba(109,191,224,.10)',
+      line: { width: 0 },
+      hoverinfo: 'skip'
+    },
+    {
+      x: learning.map(x => x.round),
+      y: learning.map(x => x.adaptiveAccuracyCI95?.[0] ?? x.adaptiveAccuracy),
+      showlegend: false,
+      line: { width: 0 },
+      hoverinfo: 'skip'
+    },
+    {
+      x: learning.map(x => x.round),
+      y: learning.map(x => x.adaptiveAccuracyCI95?.[1] ?? x.adaptiveAccuracy),
+      name: 'Adaptive 95% CI',
+      mode: 'lines',
+      fill: 'tonexty',
+      fillcolor: 'rgba(111,215,180,.10)',
+      line: { width: 0 },
+      hoverinfo: 'skip'
+    },
+    {
+      x: learning.map(x => x.round),
+      y: learning.map(x => x.fixedAccuracy),
+      name: 'Fixed accuracy',
+      mode: 'lines+markers',
+      line: { width: 2 },
+      marker: { size: 5 }
+    },
+    {
+      x: learning.map(x => x.round),
+      y: learning.map(x => x.adaptiveAccuracy),
+      name: 'Adaptive accuracy',
+      mode: 'lines+markers',
+      line: { width: 2 },
+      marker: { size: 5 }
+    }
+  ];
 
   return <div className="experiment-layout">
     <section className="experiment-main">
@@ -78,12 +148,9 @@ export default function ExperimentPanel({ experiment, onRerun }) {
 
       <div className="experiment-grid">
         <div className="experiment-chart-card">
-          <div className="experiment-chart-head"><div><div className="eyebrow">PANEL A</div><h3>Learning curve</h3></div><span>Accuracy</span></div>
+          <div className="experiment-chart-head"><div><div className="eyebrow">PANEL A</div><h3>Learning curve</h3></div><span>Accuracy · 95% CI</span></div>
           <PlotlyFigure
-            data={[
-              { x: learning.map(x => x.round), y: learning.map(x => x.fixedAccuracy), name: 'Fixed accuracy', mode: 'lines+markers', line: { width: 2 }, marker: { size: 5 } },
-              { x: learning.map(x => x.round), y: learning.map(x => x.adaptiveAccuracy), name: 'Adaptive accuracy', mode: 'lines+markers', line: { width: 2 }, marker: { size: 5 } }
-            ]}
+            data={learningTraces}
             layout={{...figureBase, title: { text: 'Accuracy across repeated rounds', font: { size: 11 } }, xaxis: {...figureBase.xaxis, title: 'Round'}, yaxis: {...figureBase.yaxis, title: 'Accuracy (%)', range: [0,100]}}}
           />
         </div>
@@ -128,7 +195,47 @@ export default function ExperimentPanel({ experiment, onRerun }) {
         </div>
       </div>
 
-      <div className="experiment-note"><strong>Interpretation.</strong> This is a controlled synthetic experiment. The virtual trainee is simulated, so the plots do not establish real human-learning effects. Use the output to inspect curriculum behavior and generate hypotheses for later participant studies.</div>
+      <div className="experiment-stats">
+        <div className="experiment-stats-head">
+          <div>
+            <div className="eyebrow">STATISTICAL INFERENCE</div>
+            <h3>Paired effect estimates</h3>
+          </div>
+          <span>95% percentile bootstrap · session-level</span>
+        </div>
+        <div className="experiment-stats-grid">
+          <div><small>OVERALL ACCURACY Δ</small><strong>{accuracyStats ? (accuracyStats.difference >= 0 ? '+' : '') + accuracyStats.difference.toFixed(1) + ' pts' : '—'}</strong><span>95% CI {accuracyStats ? accuracyStats.confidenceInterval95.lower.toFixed(1) + ' to ' + accuracyStats.confidenceInterval95.upper.toFixed(1) + ' pts' : '—'}</span></div>
+          <div><small>FINAL 4-ROUND Δ</small><strong>{finalAccuracyStats ? (finalAccuracyStats.difference >= 0 ? '+' : '') + finalAccuracyStats.difference.toFixed(1) + ' pts' : '—'}</strong><span>95% CI {finalAccuracyStats ? finalAccuracyStats.confidenceInterval95.lower.toFixed(1) + ' to ' + finalAccuracyStats.confidenceInterval95.upper.toFixed(1) + ' pts' : '—'}</span></div>
+          <div><small>RANDOMIZATION p</small><strong>{accuracyStats ? formatP(accuracyStats.pValueRandomization) : '—'}</strong><span>Paired session sign-randomization</span></div>
+        </div>
+        <div className="experiment-stats-table">
+          <div className="experiment-stats-row experiment-stats-head-row">
+            <span>Metric</span><span>Fixed</span><span>Adaptive</span><span>Δ</span><span>95% CI</span><span>p</span><span>Effect</span>
+          </div>
+          {publicationRows.map(function(row) {
+            const ci = row.confidenceInterval95 || {};
+            const isBrier = row.label.includes('Brier');
+            const digits = isBrier ? 3 : 1;
+            return <div className="experiment-stats-row" key={row.label}>
+              <span><strong>{row.label}</strong><small>{row.effectSize?.type || 'paired comparison'}</small></span>
+              <span>{row.fixed === null ? '—' : Number(row.fixed).toFixed(digits)}</span>
+              <span>{row.adaptive === null ? '—' : Number(row.adaptive).toFixed(digits)}</span>
+              <span className={Number(row.difference) >= 0 ? 'stat-positive' : 'stat-negative'}>{Number(row.difference) >= 0 ? '+' : ''}{Number(row.difference).toFixed(digits)}</span>
+              <span>[{Number(ci.lower).toFixed(digits)}, {Number(ci.upper).toFixed(digits)}]</span>
+              <span>{formatP(row.pValueRandomization)}</span>
+              <span>{formatEffect(row)}</span>
+            </div>;
+          })}
+        </div>
+        <div className="experiment-method-note">
+          <strong>{statistics?.method || 'Paired statistical comparison'}</strong>.
+          Resampling unit: <b>{statistics?.bootstrapUnit || 'virtual trainee/session'}</b>.
+          Bootstrap repetitions: <b>{statistics?.bootstrapRepetitions?.toLocaleString() || '—'}</b>; paired sign-randomization repetitions: <b>{statistics?.permutationRepetitions?.toLocaleString() || '—'}</b>.
+          These intervals quantify uncertainty in the synthetic simulator and do not establish human-learning effects.
+        </div>
+      </div>
+
+      <div className="experiment-note"><strong>Interpretation.</strong> This is a controlled synthetic experiment. The virtual trainee is simulated, so the plots do not establish real human-learning effects. The confidence bands, bootstrap intervals, paired randomization tests and effect sizes are included to make the simulator's behavior auditable rather than to substitute for a participant study.</div>
     </section>
 
     <aside className="experiment-side">
@@ -139,7 +246,8 @@ export default function ExperimentPanel({ experiment, onRerun }) {
         <div><b>02</b><span><strong>Repeated exposure</strong> Each virtual trainee completes the same number of rounds.</span></div>
         <div><b>03</b><span><strong>Skill trajectory</strong> Glicko-2 rating is tracked after every synthetic decision.</span></div>
         <div><b>04</b><span><strong>Calibration</strong> Brier-oriented confidence is visualized separately from accuracy.</span></div>
-        <div><b>05</b><span><strong>Exportable data</strong> Trial-level paired results can be saved as CSV or JSON.</span></div>
+        <div><b>05</b><span><strong>Paired inference</strong> Sessions are resampled as intact units to respect repeated-measures structure.</span></div>
+        <div><b>06</b><span><strong>Exportable data</strong> Trial-level paired results and full statistical outputs can be saved.</span></div>
       </div>
       <div className="panel-divider"></div>
       <div className="eyebrow">OPEN-SOURCE VISUALIZATION</div>
