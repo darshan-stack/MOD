@@ -129,7 +129,7 @@ function scoreCase(prediction, truth) {
   const decisionProbability = Number(prediction.probability ?? prediction.confidence ?? 0);
   return {
     correct,
-    falseConfident: !correct && decisionProbability >= 70,
+    falseConfident: !prediction.abstain && !correct && decisionProbability >= 70,
     decisionProbability,
     brier,
     rawBrier
