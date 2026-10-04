@@ -106,7 +106,7 @@ The decision-intelligence kernel uses:
 - SHA-256 exercise fingerprinting for tamper-evident AAR integrity checks.
 - Deterministic benchmark laboratory comparing Sentinel Ω against confidence-only and confidence×freshness baselines under controlled degradation.
 - Red-team resilience laboratory that deterministically attacks the information layer with stale deception, conflict bursts, true-source dropout, duplicate-source echoes and delayed contradictions, measuring false-confidence exposure and explicit abstention.
-- Synthetic Curriculum Experiment Lab running seeded multi-session comparisons between fixed and adaptive curricula, with learning curves, difficulty-response plots, calibration diagrams, adaptive-gain heatmaps, session-level bootstrap confidence intervals, paired randomization tests, effect sizes and trial-level CSV/JSON export.
+- Synthetic Curriculum Experiment Lab running seeded multi-session comparisons between fixed and adaptive curricula, with learning curves, difficulty-response plots, calibration diagrams, adaptive-gain heatmaps, session-level bootstrap confidence intervals, paired randomization tests, effect sizes, trial-level CSV/JSON export, and component ablation sensitivity analysis.
 
 See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, design rationale and citations.
 
@@ -125,6 +125,7 @@ See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, de
 11. Open **Red-team Resilience** to replay the five deterministic attack classes and show how often the system stops an adversarial information state by correcting or abstaining.
 12. Open the **Statistical Inference** panel inside the experiment lab to show 95% bootstrap intervals, paired sign-randomization p-values and effect sizes.
 13. Use the experiment JSON/CSV exports as a reproducible lab record; the statistical layer treats each virtual trainee/session as the resampling unit.
+14. Review the **Component Ablation** section to compare the full production path against freshness-fixed, learned-reliability-disabled, abstention-disabled and confidence-only variants.
 14. In **Exercise Director**, use **GENERATE NEXT EXERCISE** to create a seeded procedural scenario from the Scenario DSL; inspect the generated evidence count, network degradation and event stream.
 15. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views. For a saved Rerun recording, use `npm run viz:rerun -- --save artifacts/sentinel-grid.rrd`.
 
@@ -155,3 +156,10 @@ The exported experiment JSON contains:
 - the exact seed, session count and round count used to reproduce the run.
 
 These statistics describe the behavior of the synthetic simulator. They are not evidence of human learning, operational effectiveness or statistical significance in a participant study.
+
+
+## Component ablation laboratory
+
+The experiment lab includes a deterministic component-sensitivity study over the same procedural case stream. The FULL configuration uses the production Sentinel Ω decision path. Comparison variants constrain one mechanism at a time so the team can inspect how accuracy, false-confidence exposure, abstention and Brier score move.
+
+The ablation study is intentionally narrower than the benchmark suite: it is a mechanism-level sensitivity analysis, not a claim that any single component has been causally proven responsible for human performance. Results remain synthetic and reproducible from the displayed seed.
