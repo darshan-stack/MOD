@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
+import { experimentCsv } from '../engine/experimentLab.js';
 
 function PlotlyFigure({ data, layout, config }) {
   const ref = useRef(null);
@@ -18,7 +19,18 @@ function PlotlyFigure({ data, layout, config }) {
   return <div ref={ref} className="experiment-plot"></div>;
 }
 
-export default function ExperimentPanel({ experiment, onRerun, onExportJson, onExportCsv }) {
+const downloadBlob = function(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+};
+
+export default function ExperimentPanel({ experiment, onRerun }) {
   const figureBase = useMemo(() => ({
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(8,19,27,.55)',
@@ -40,8 +52,14 @@ export default function ExperimentPanel({ experiment, onRerun, onExportJson, onE
       <div className="section-head">
         <div><div className="eyebrow">SYNTHETIC CURRICULUM EXPERIMENT · PLOTLY</div><h2>Learning and adaptation laboratory <span className="badge live">REPRODUCIBLE</span></h2></div>
         <div className="export-actions">
-          <button className="ghost-btn" onClick={onExportJson}>JSON</button>
-          <button className="ghost-btn" onClick={onExportCsv}>CSV</button>
+          <button className="ghost-btn" onClick={function() {
+            const blob = new Blob([JSON.stringify(experiment, null, 2)], { type: 'application/json' });
+            downloadBlob(blob, 'sentinel-grid-experiment.json');
+          }}>JSON</button>
+          <button className="ghost-btn" onClick={function() {
+            const blob = new Blob([experimentCsv(experiment)], { type: 'text/csv;charset=utf-8' });
+            downloadBlob(blob, 'sentinel-grid-experiment.csv');
+          }}>CSV</button>
           <button className="primary-btn" onClick={onRerun}>RERUN ×{experiment.totalCases}</button>
         </div>
       </div>
