@@ -112,10 +112,10 @@ def main() -> None:
     dropout = float(bundle.get("network", {}).get("dropout", 0))
     conflict = float(bundle.get("network", {}).get("conflict", 0))
     rr.set_time("exercise", sequence=0)
-    rr.log("telemetry/network_health", rr.Scalar(network), static=False)
-    rr.log("telemetry/latency", rr.Scalar(latency), static=False)
-    rr.log("telemetry/dropout", rr.Scalar(dropout), static=False)
-    rr.log("telemetry/conflict", rr.Scalar(conflict), static=False)
+    rr.log("telemetry/network_health", rr.Scalars(network), static=False)
+    rr.log("telemetry/latency", rr.Scalars(latency), static=False)
+    rr.log("telemetry/dropout", rr.Scalars(dropout), static=False)
+    rr.log("telemetry/conflict", rr.Scalars(conflict), static=False)
 
     # Event/decision reconstruction on the same timeline.
     for event in bundle.get("events", []):
