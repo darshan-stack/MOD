@@ -185,3 +185,13 @@ This changes the experimental unit from a small set of hand-authored demonstrati
 
 The procedural layer is deliberately separated from the decision-intelligence kernel. Scenario generation creates information conditions; the decision model remains responsible for fusion, uncertainty and abstention. This separation makes it possible to test the same decision algorithm across many independently generated information environments.
 
+
+
+### 12. Synthetic curriculum experiment lab
+
+The experiment layer evaluates repeated exposure to procedurally generated exercises using two curriculum policies: a fixed difficulty schedule and an adaptive difficulty schedule. Each virtual trainee is initialized with the same Glicko-2 prior, and the experiment records round-level accuracy, rating trajectory, confidence calibration and performance by generated difficulty.
+
+The current default configuration is 32 virtual trainees × 16 rounds × 2 curricula = 1,024 synthetic decision trials. This is deliberately a simulation of the training system, not a human-subject experiment. Its role is to expose algorithmic behavior, identify unstable regions and generate hypotheses for later empirical validation.
+
+Interactive plots are rendered with Plotly.js, an open-source MIT-licensed visualization library; the rest of the project also uses Apache ECharts, Cytoscape.js, vis-timeline, Rerun and Open3D for complementary dashboard, network, replay and 3D views.
+
