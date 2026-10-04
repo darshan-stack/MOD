@@ -110,7 +110,6 @@ function App() {
   });
   const channelRef = useRef(null);
   const sessionIdRef = useRef(makeId('TAB'));
-  const suppressEventBroadcastRef = useRef(false);
 
   const scenario = useMemo(function() { return { ...SCENARIOS[scenarioKey], difficulty: scenarioDifficulty }; }, [scenarioKey, scenarioDifficulty]);
   const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic === 'route_echo'; }); }, [reports]);
@@ -141,8 +140,7 @@ function App() {
         loadScenario(p.key, true);
       }
       if (p.type === 'INJECT') {
-        suppressEventBroadcastRef.current = true;
-        try { inject(p.kind, true); } finally { suppressEventBroadcastRef.current = false; }
+        inject(p.kind, true);
       }
       if (p.type === 'JOIN') {
         setMembers(function(current) {
@@ -167,10 +165,10 @@ function App() {
     if (channelRef.current) channelRef.current.postMessage({ ...payload, origin: sessionIdRef.current });
   };
 
-  const addEvent = function(tag, text) {
+  const addEvent = function(tag, text, shouldBroadcast) {
     var event = { at: elapsed, tag: tag, text: text };
     setEvents(function(current) { return current.concat(event); });
-    if (!suppressEventBroadcastRef.current) broadcast({ type: 'EVENT', event: event });
+    if (shouldBroadcast !== false) broadcast({ type: 'EVENT', event: event });
   };
 
   const visibleReports = useMemo(function() {
@@ -210,14 +208,14 @@ function App() {
       setLatency(function(v) { return clamp(v + 18); });
       setFreshnessDecay(function(v) { return clamp(v + 10); });
       setReports(function(current) { return current.map(function(r) { return r.domain === 'AIR' ? { ...r, freshness: clamp(r.freshness - 14), state: clamp(r.freshness - 14) < 40 ? 'stale' : r.state } : r; }); });
-      addEvent('INJECT', 'ISR feed delayed. Freshness decay accelerated.');
+      addEvent('INJECT', 'ISR feed delayed. Freshness decay accelerated.', false);
     }
     if (kind === 'dropout') {
       setDropout(function(v) { return clamp(v + 14); });
       setNetHealth(function(v) { return clamp(v - 13); });
       setMembers(function(current) { return current.map(function(m) { return m.id === 'patel' ? { ...m, status: 'offline' } : m; }); });
       setReports(function(current) { return current.map(function(r) { return r.id === 'R-703' ? { ...r, state: 'dropped', detail: 'Source unreachable · last packet retained locally' } : r; }); });
-      addEvent('INJECT', 'NETWATCH node dropped. Last-known data retained.');
+      addEvent('INJECT', 'NETWATCH node dropped. Last-known data retained.', false);
     }
     if (kind === 'conflict') {
       setConflict(function(v) { return clamp(v + 16); });
@@ -227,18 +225,18 @@ function App() {
         if (!exists) next.push({ id: 'R-705', time: '14:36:02Z', source: 'Echo 3 / LAND RELAY', domain: 'EW', topic: 'route_echo', stance: 'BLOCKED', headline: 'Route ECHO may be obstructed', detail: 'Independent report disagrees with Alpha 1-1', confidence: 61, freshness: 89, state: 'conflict', truth: 'CONTRADICTORY', corroborated: 1, icon: '↯' });
         return next;
       });
-      addEvent('INJECT', 'High-conflict evidence pair injected: same claim, opposing stances.');
+      addEvent('INJECT', 'High-conflict evidence pair injected: same claim, opposing stances.', false);
     }
     if (kind === 'stale') {
       setFreshnessDecay(function(v) { return clamp(v + 18); });
       setReports(function(current) { return current.map(function(r) { return r.id === 'R-701' ? { ...r, state: 'stale', freshness: 19, detail: 'Effective age 3m 12s · review before relying on it' } : r; }); });
-      addEvent('INJECT', 'Raven-2 feed aged beyond the normal decision window.');
+      addEvent('INJECT', 'Raven-2 feed aged beyond the normal decision window.', false);
     }
     if (kind === 'split') {
       setTeamChannelDegraded(true);
       setDropout(function(v) { return clamp(v + 18); });
       setNetHealth(function(v) { return clamp(v - 18); });
-      addEvent('INJECT', 'Team channel split. Cross-cell transmissions may be delayed or dropped.');
+      addEvent('INJECT', 'Team channel split. Cross-cell transmissions may be delayed or dropped.', false);
     }
     if (!remote) broadcast({ type: 'INJECT', kind: kind });
   };
