@@ -7,7 +7,7 @@ Web-native multi-domain decision-making trainer for degraded communication envir
 
 - Mid-exercise communication degradation: delay, dropout, freshness decay, conflict pressure and team-network split.
 - Multi-domain information ledger with confidence, freshness, corroboration and a derived trust state.
-- Hidden ground truth that remains inaccessible during play and is revealed during AAR.
+- Ground truth that is UI-hidden during play and revealed during AAR; this is a training-flow boundary, not a security boundary.
 - Evidence-linked decisions: a trainee selects the information used and records rationale + confidence.
 - Multi-seat team coordination using the browser BroadcastChannel API; open the same Vite URL in two tabs for a local multiplayer demonstration.
 - Instructor scenario director with scenario presets, live friction controls, mid-exercise injection and real-time decision/event monitoring.
@@ -113,6 +113,6 @@ See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, de
 8. Show the ground-truth reveal, confidence gap, information-integrity score and audit fingerprint.
 9. In Director, press **GENERATE NEXT EXERCISE** to demonstrate the adaptive training loop.
 10. Open **Benchmark Lab** to reproduce the controlled 400-case comparison and inspect accuracy, selective accuracy, false-confidence, Brier, ECE and abstention metrics.
-11. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views.
+11. Open **Visualization Lab**, press **EXPORT 3D BUNDLE**, then run `npm run viz:rerun` or `npm run viz:open3d` for the companion high-end 3D views. For a saved Rerun recording, use `npm run viz:rerun -- --save artifacts/sentinel-grid.rrd`.
 
 The system is intentionally synthetic and software-only. It is not connected to weapons, operational networks or real-world targeting systems.
