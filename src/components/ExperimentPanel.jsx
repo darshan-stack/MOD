@@ -324,9 +324,6 @@ function ResearchEvidenceDashboard({ benchmark, resilience, experiment, ablation
   const finalStats = experiment?.statistics?.comparisons?.finalAccuracy;
   const snapshot = { benchmark: sentinel, resilience, experiment, ablation, surface };
 
-  const accuracyStats = experiment?.statistics?.comparisons?.accuracy;
-  const finalStats = experiment?.statistics?.comparisons?.finalAccuracy;
-
   const safetyRows = [
     { label: 'Benchmark accuracy', sentinel: sentinel.accuracy, baseline: reliability.accuracy, suffix: '%' },
     { label: 'False confidence', sentinel: sentinel.falseConfidenceRate, baseline: reliability.falseConfidenceRate, suffix: '%' },
