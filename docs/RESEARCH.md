@@ -42,7 +42,7 @@ The prototype now represents each binary claim as a Subjective Logic opinion:
 
 **ω = (belief, disbelief, uncertainty, base rate)**
 
-Report reliability, freshness, confidence, corroboration and channel health determine how much evidence mass leaves the uncertainty bucket. Independent opinions are then fused with a conservative consensus operator. The projected probability is **belief + base rate × uncertainty**, while the uncertainty component remains visible to the trainee.
+Report reliability, freshness, confidence, corroboration and channel health determine how much evidence mass leaves the uncertainty bucket. Reports are combined with a conservative weighted opinion-pooling rule that preserves an explicit uncertainty mass; a separate pairwise consensus operator is retained in the kernel for validation experiments. The projected probability is **belief + base rate × uncertainty**, while the uncertainty component remains visible to the trainee.
 
 This is intentionally different from collapsing all reports into a single confidence number. Under contradiction, Sentinel Grid can surface a high-uncertainty state and abstain.
 
