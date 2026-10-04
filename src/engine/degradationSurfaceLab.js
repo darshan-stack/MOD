@@ -117,22 +117,33 @@ function makeBaseCase(rng, index) {
   };
 }
 
-function stressCase(baseCase, networkHealth, conflictPressure, rng) {
+function stressCase(baseCase, networkHealth, conflictPressure, stressSeed) {
+  const rng = seeded(stressSeed);
   const health = clamp(networkHealth / 100);
   const pressure = clamp(conflictPressure / 100);
   const reports = baseCase.reports.map(function(report, index) {
+    // Consume all random draws unconditionally. This is common-random-number
+    // control: every grid cell sees the same stochastic stream per base case,
+    // with only the stress thresholds changing.
     const ageNoise = Math.round((rng() - 0.5) * 10);
+    const dropoutRoll = rng();
+    const conflictRoll = rng();
+    const flipRoll = rng();
     const freshness = Math.max(12, Math.min(100, Math.round(
       28 + health * 68 + ageNoise
     )));
     const confidencePenalty = Math.round((1 - health) * 22);
     const dropoutProbability = Math.min(0.28, (1 - health) * 0.30);
-    const dropped = rng() < dropoutProbability && index > 0;
-    const conflicting = !dropped && index > 0 && rng() < pressure;
+    const dropped = dropoutRoll < dropoutProbability && index > 0;
+    const conflicting = !dropped && index > 0 && conflictRoll < pressure;
 
     let stance = report.stance;
     if (conflicting) {
-      stance = pick(rng, LABELS.filter(label => label !== baseCase.truth));
+      const alternatives = LABELS.filter(label => label !== baseCase.truth);
+      stance = alternatives[Math.min(
+        alternatives.length - 1,
+        Math.floor(flipRoll * alternatives.length)
+      )];
     }
 
     return {
@@ -162,7 +173,6 @@ function stressCase(baseCase, networkHealth, conflictPressure, rng) {
 
   return reports;
 }
-
 function summarizeCell(rows) {
   const total = rows.length;
   const probability = mean(rows.map(row => row.probability));
@@ -239,15 +249,17 @@ export function runDegradationSurfaceStudy({
     const phaseLabelRow = [];
 
     networkHealthLevels.forEach(function(networkHealth, xIndex) {
-      const cellRng = seeded(
-        (Number(seed) + yIndex * 10007 + xIndex * 1009 + 97) >>> 0
-      );
-      const rows = baseCases.map(function(baseCase) {
+      const rows = baseCases.map(function(baseCase, baseIndex) {
+        const caseSeed = (
+          Number(seed) +
+          (baseIndex + 1) * 100003 +
+          97
+        ) >>> 0;
         const reports = stressCase(
           baseCase,
           networkHealth,
           conflictPressure,
-          cellRng
+          caseSeed
         );
         const decision = robustFuse(reports, networkHealth / 100, {});
         const outcome = evaluateDecisionOutcome(
