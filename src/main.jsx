@@ -261,11 +261,10 @@ function App() {
   const logDecision = function() {
     if (!decisionText.trim()) return;
     var currentActor = members.find(function(m) { return m.id === activeSeat; }) || members[0];
-    var selectedRouteEvidence = reports.filter(function(r) { return selectedEvidence.indexOf(r.id) >= 0 && r.topic === 'route_echo'; });
-    var decisionReports = selectedRouteEvidence.length ? selectedRouteEvidence : routeEvidence;
+    var selectedReports = reports.filter(function(r) { return selectedEvidence.indexOf(r.id) >= 0; });
+    var decisionReports = selectedReports.filter(function(r) { return r.topic === 'route_echo'; });
     var evidenceState = robustFuse(decisionReports, netHealth / 100, sourceHistory);
     var outcome = evaluateDecisionOutcome(decisionType, evidenceState, scenario.difficulty, scenario.routeTruth);
-    var usedEvidence = decisionReports.map(function(r) { return r.id; });
     var d = {
       id: makeId('D'),
       at: elapsed,
@@ -274,8 +273,7 @@ function App() {
       action: decisionType,
       rationale: decisionText.trim(),
       confidence: Number(confidence),
-      evidence: usedEvidence,
-      selectedEvidence: selectedEvidence.slice(),
+      evidence: selectedEvidence.slice(),
       fusedClaim: evidenceState.label,
       belief: evidenceState.belief,
       disbelief: evidenceState.disbelief,
