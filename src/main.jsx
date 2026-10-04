@@ -7,7 +7,7 @@ import { runBenchmark, benchmarkHeadline } from './engine/benchmark';
 import { runResilienceBenchmark } from './engine/resilienceLab';
 import { explainDecision } from './engine/decisionExplainability';
 import { generateScenario } from './engine/scenarioGenerator';
-import { runCurriculumExperiment, experimentCsv } from './engine/experimentLab';
+import { runCurriculumExperiment } from './engine/experimentLab';
 import { runAblationStudy } from './engine/ablationLab';
 import ExperimentPanel from './components/ExperimentPanel';
 
