@@ -136,7 +136,7 @@ function App() {
     var base = generatedScenario || SCENARIOS[scenarioKey];
     return { ...base, difficulty: scenarioDifficulty };
   }, [scenarioKey, scenarioDifficulty, generatedScenario]);
-  const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic === 'route_echo'; }); }, [reports]);
+  const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic && r.topic.startsWith('route_'); }); }, [reports]);
   const fusedRoute = useMemo(function() { return robustFuse(routeEvidence, netHealth / 100, sourceHistory); }, [routeEvidence, netHealth, sourceHistory]);
   const explainability = useMemo(function() {
     return explainDecision(reports, selectedEvidence, netHealth / 100, sourceHistory);
