@@ -594,3 +594,32 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:1px soli
   .experiment-grid{grid-template-columns:1fr}
   .experiment-hero{grid-template-columns:1fr 1fr}
 }
+
+
+/* Statistical inference panel */
+.experiment-stats{margin-top:14px;border:1px solid #1d3948;background:linear-gradient(180deg,#0b1821,#09151d);border-radius:6px;padding:14px}
+.experiment-stats-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:11px}
+.experiment-stats-head h3{font-size:12px;margin:4px 0 0}
+.experiment-stats-head>span{font:8px 'DM Mono';color:#607c88}
+.experiment-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:11px}
+.experiment-stats-grid>div{border:1px solid #1b3643;background:#0a171f;padding:10px 11px;border-radius:5px}
+.experiment-stats-grid small{display:block;font:8px 'DM Mono';letter-spacing:.9px;color:#6d8792}
+.experiment-stats-grid strong{display:block;font:17px 'DM Mono';color:#dff2f0;margin:6px 0 3px}
+.experiment-stats-grid span{display:block;font:8px 'DM Mono';color:#6f8994;line-height:1.45}
+.experiment-stats-table{border:1px solid #193442;border-radius:5px;overflow:auto;background:#08131a}
+.experiment-stats-row{display:grid;grid-template-columns:1.55fr .75fr .75fr .75fr 1.2fr .65fr .9fr;min-width:760px;gap:6px;align-items:center;border-top:1px solid #17303b;padding:9px 8px;font:8px 'DM Mono';color:#99aeb5}
+.experiment-stats-row:first-child{border-top:0}
+.experiment-stats-row>span:not(:first-child){text-align:right}
+.experiment-stats-row strong{display:block;font:9px Manrope;color:#d4e6ea}
+.experiment-stats-row small{display:block;font:7px 'DM Mono';color:#607b86;margin-top:3px;white-space:nowrap}
+.experiment-stats-head-row{background:#0b1820;color:#5f7a86;letter-spacing:.6px;text-transform:uppercase}
+.experiment-stats-head-row>span:not(:first-child){text-align:right}
+.stat-positive{color:var(--green)!important;font-weight:700}
+.stat-negative{color:var(--red)!important;font-weight:700}
+.experiment-method-note{margin-top:10px;padding:10px 11px;border-left:2px solid #477d7a;background:#0a1a20;color:#6f8993;font:8px 'DM Mono';line-height:1.55}
+.experiment-method-note strong{color:#9fcfca}
+.experiment-method-note b{color:#a9c5cc}
+@media(max-width:900px){
+  .experiment-stats-grid{grid-template-columns:1fr}
+  .experiment-stats-head{align-items:flex-start;gap:8px;flex-direction:column}
+}
