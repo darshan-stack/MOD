@@ -103,7 +103,7 @@ function App() {
     if (!due.length) return;
     due.forEach(function(event) {
       setTriggeredSimulationEvents(function(current) { return current.indexOf(event.id) >= 0 ? current : current.concat(event.id); });
-      inject(event.kind, { source: 'AUTO', simulationId: event.id, simulationTitle: event.title });
+      inject(event.kind, { source: 'AUTO', simulationId: event.id, simulationTitle: event.title, at: event.at });
     });
   }, [elapsed, scenarioKey, mode, autoSimulation, running, triggeredSimulationEvents]);
 
@@ -173,7 +173,7 @@ function App() {
   };
 
   const addEvent = function(tag, text, options) {
-    var event = { id: 'E-' + Date.now() + '-' + Math.random().toString(16).slice(2), at: elapsed, tag: tag, text: text };
+    var event = { id: 'E-' + Date.now() + '-' + Math.random().toString(16).slice(2), at: options && Number.isFinite(options.at) ? options.at : elapsed, tag: tag, text: text };
     setEvents(function(current) { return current.concat(event); });
     if (!options || !options.silent) broadcast({ type: 'EVENT', event: event });
   };
