@@ -145,7 +145,7 @@ function App() {
   useEffect(function() { try { localStorage.setItem('sentinel-grid-glicko2', JSON.stringify(skill)); } catch (_) {} }, [skill]);
   useEffect(function() { try { localStorage.setItem('sentinel-grid-source-history', JSON.stringify(sourceHistory)); } catch (_) {} }, [sourceHistory]);
   useEffect(function() { try { localStorage.setItem('sentinel-grid-exercise-history', JSON.stringify(exerciseHistory)); } catch (_) {} }, [exerciseHistory]);
-  useEffect(function() { sha256Fingerprint({ scenarioKey: scenarioKey, reports: reports, decisions: decisions, events: events, messages: messages }).then(function(hash) { setLedgerFingerprint(hash.slice(0, 24).toUpperCase()); }); }, [scenarioKey, reports, decisions, events, messages]);
+  useEffect(function() { sha256Fingerprint({ scenarioKey: scenarioKey, scenarioGeneration: scenario.generation || null, reports: reports, decisions: decisions, events: events, messages: messages }).then(function(hash) { setLedgerFingerprint(hash.slice(0, 24).toUpperCase()); }); }, [scenarioKey, scenario.generation, reports, decisions, events, messages]);
 
   useEffect(function() {
     if (typeof BroadcastChannel === 'undefined') return undefined;
