@@ -195,3 +195,20 @@ The current default configuration is 32 virtual trainees × 16 rounds × 2 curri
 
 Interactive plots are rendered with Plotly.js, an open-source MIT-licensed visualization library; the rest of the project also uses Apache ECharts, Cytoscape.js, vis-timeline, Rerun and Open3D for complementary dashboard, network, replay and 3D views.
 
+
+
+### 13. Statistical inference for the synthetic curriculum lab
+
+The curriculum experiment now includes an inference layer designed around the repeated-measures structure of the simulator. Each virtual trainee/session is treated as the resampling unit rather than treating all 16 rounds as independent observations. This preserves within-trainee correlation in the bootstrap procedure and avoids presenting the 1,024 trial-level rows as 1,024 independent subjects.
+
+The lab reports:
+
+- session-level percentile bootstrap 95% confidence intervals for overall accuracy, final-period accuracy, Brier improvement, mean confidence and final Glicko-2 rating;
+- deterministic paired sign-randomization p-values using the same session-level differences;
+- Cohen's h for accuracy proportions and paired Cohen's dz for continuous paired outcomes;
+- round-level bootstrap confidence bands for the learning curve;
+- trial-level CSV plus full JSON export containing seeds and statistical configuration.
+
+The inferential layer is intentionally descriptive of the simulator. It does not convert synthetic virtual-trainee trajectories into human-subject evidence. A real study would need an independently specified protocol, participant-level assignment, appropriate power analysis, preregistration where applicable and statistical treatment of missingness, clustering and repeated measures.
+
+The publication table shown in the UI is therefore best interpreted as a reproducible simulator sensitivity report: it answers "how stable is this synthetic result under resampling?" rather than "has this training method been proven effective in people?"
