@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
-import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint, defaultGlicko2, glicko2Update, calibrationSummary, evaluateDecisionOutcome, updateSourceHistory, sourceReliability } from './engine/decisionIntelligence';
+import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationIntegrityIndex, robustFuse, sha256Fingerprint, defaultGlicko2, glicko2Update, calibrationSummary, evaluateDecisionOutcome, updateSourceHistory, sourceReliability, brierScore } from './engine/decisionIntelligence';
 import { runBenchmark, benchmarkHeadline } from './engine/benchmark';
 
 const SCENARIOS = {
@@ -37,6 +37,30 @@ const fmtClock = function(seconds) {
   return hh + ':' + mm + ':' + ss;
 };
 const stamp = function() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); };
+let idCounter = 0;
+const makeId = function(prefix) {
+  if (globalThis.crypto?.randomUUID) return prefix + '-' + globalThis.crypto.randomUUID();
+  idCounter += 1;
+  return prefix + '-' + Date.now().toString(36) + '-' + idCounter.toString(36);
+};
+const escapeHtml = function(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+const downloadBlob = function(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+};
 const trustScore = function(r) {
   var base = r.confidence * 0.52 + r.freshness * 0.28 + Math.min(r.corroborated, 3) * 6.5;
   var penalty = r.state === 'conflict' ? 18 : r.state === 'dropped' ? 28 : 0;
@@ -47,6 +71,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('cockpit');
   const [mode, setMode] = useState('trainee');
   const [scenarioKey, setScenarioKey] = useState('ALPHA-07');
+  const [scenarioDifficulty, setScenarioDifficulty] = useState(SCENARIOS['ALPHA-07'].difficulty);
   const [running, setRunning] = useState(true);
   const [elapsed, setElapsed] = useState(1122);
   const [reports, setReports] = useState(cloneReports);
@@ -85,11 +110,11 @@ function App() {
   });
   const channelRef = useRef(null);
 
-  const scenario = SCENARIOS[scenarioKey];
+  const scenario = useMemo(function() { return { ...SCENARIOS[scenarioKey], difficulty: scenarioDifficulty }; }, [scenarioKey, scenarioDifficulty]);
   const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic === 'route_echo'; }); }, [reports]);
   const fusedRoute = useMemo(function() { return robustFuse(routeEvidence, netHealth / 100, sourceHistory); }, [routeEvidence, netHealth, sourceHistory]);
   const integrityIndex = useMemo(function() { return informationIntegrityIndex(reports, netHealth, latency, dropout, conflict, sourceHistory); }, [reports, netHealth, latency, dropout, conflict, sourceHistory]);
-  const confidenceGap = useMemo(function() { return computeCalibrationGap(decisions, reports); }, [decisions, reports]);
+  const confidenceGap = useMemo(function() { return computeCalibrationGap(decisions, reports, sourceHistory); }, [decisions, reports, sourceHistory]);
   const calibration = useMemo(function() { return calibrationSummary(decisions); }, [decisions]);
 
   useEffect(function() {
@@ -209,6 +234,10 @@ function App() {
   const loadScenario = function(key) {
     var s = SCENARIOS[key];
     setScenarioKey(key);
+    setScenarioDifficulty(s.difficulty);
+    setSelectedEvidence([]);
+    setDecisionText('');
+    setTeamChannelDegraded(s.dropout >= 20 || s.comms >= 40);
     setNetHealth(100 - s.comms);
     setLatency(s.latency);
     setDropout(s.dropout);
@@ -232,26 +261,28 @@ function App() {
   const logDecision = function() {
     if (!decisionText.trim()) return;
     var currentActor = members.find(function(m) { return m.id === activeSeat; }) || members[0];
-    var decisionEvidence = reports.filter(function(r) { return selectedEvidence.indexOf(r.id) >= 0 && r.topic === 'route_echo'; });
-    var decisionReports = decisionEvidence.length ? decisionEvidence : routeEvidence;
+    var selectedRouteEvidence = reports.filter(function(r) { return selectedEvidence.indexOf(r.id) >= 0 && r.topic === 'route_echo'; });
+    var decisionReports = selectedRouteEvidence.length ? selectedRouteEvidence : routeEvidence;
     var evidenceState = robustFuse(decisionReports, netHealth / 100, sourceHistory);
     var outcome = evaluateDecisionOutcome(decisionType, evidenceState, scenario.difficulty, scenario.routeTruth);
+    var usedEvidence = decisionReports.map(function(r) { return r.id; });
     var d = {
-      id: 'D-' + String(decisions.length + 1).padStart(3, '0'),
+      id: makeId('D'),
       at: elapsed,
       actor: activeSeat === 'you' ? 'You / OC' : currentActor.name,
       role: currentActor.role,
       action: decisionType,
       rationale: decisionText.trim(),
       confidence: Number(confidence),
-      evidence: selectedEvidence,
+      evidence: usedEvidence,
+      selectedEvidence: selectedEvidence.slice(),
       fusedClaim: evidenceState.label,
       belief: evidenceState.belief,
       disbelief: evidenceState.disbelief,
       uncertainty: evidenceState.uncertainty,
       sufficiency: evidenceState.sufficiency,
       correct: outcome.correct,
-      brier: outcome.brier,
+      brier: brierScore(Number(confidence) / 100, outcome.correct),
       itemRating: outcome.opponentRating
     };
     setDecisions(function(current) { return [d].concat(current); });
@@ -276,7 +307,14 @@ function App() {
 
   const sendMessage = function() {
     if (!messageText.trim()) return;
-    var msg = { id: 'M-' + Date.now(), at: elapsed, actor: 'Arjun Mehta', initials: 'AM', text: messageText.trim() };
+    var currentActor = members.find(function(m) { return m.id === activeSeat; }) || members[0];
+    var msg = {
+      id: makeId('M'),
+      at: elapsed,
+      actor: activeSeat === 'you' ? 'You / OC' : currentActor.name,
+      initials: currentActor.initials,
+      text: messageText.trim()
+    };
     setMessages(function(current) { return [msg].concat(current); });
     addEvent('TEAM', 'You → ALPHA CELL: ' + msg.text);
     broadcast({ type: 'TEAM_MESSAGE', message: msg });
@@ -287,6 +325,10 @@ function App() {
     var nextChoice = adaptiveChoice(focus, {}, Math.max(decisions.length + 1, 1));
     var targetDifficulty = clamp(nextChoice.difficulty + focus.length - 1, 1, 10);
     setScenarioKey(nextChoice.key);
+    setScenarioDifficulty(targetDifficulty);
+    setSelectedEvidence([]);
+    setDecisionText('');
+    setTeamChannelDegraded(true);
     setNetHealth(36);
     setLatency(clamp(72 + focus.length * 6));
     setDropout(36);
@@ -320,12 +362,7 @@ function App() {
       note: 'Synthetic visualization bundle; not operational data.'
     };
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'sentinel-grid-viz.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, 'sentinel-grid-viz.json');
   };
 
   const exportAAR = function(format) {
@@ -351,17 +388,12 @@ function App() {
     if (format === 'html') {
       mime = 'text/html';
       filename = 'sentinel-grid-aar.html';
-      text = '<!doctype html><html><head><meta charset="utf-8"><title>Sentinel Grid Omega AAR</title><style>body{font-family:Arial;background:#071019;color:#dce7ee;padding:30px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #294453;text-align:left}.card{border:1px solid #294453;padding:18px;margin:14px 0;background:#0d1923}</style></head><body><h1>Sentinel Grid Omega — After Action Review</h1><p>' + scenario.name + ' · T+' + fmtClock(elapsed) + '</p><div class="card"><h2>Training metrics</h2><p>Decisions: ' + metrics.count + ' · Avg confidence: ' + metrics.avgConfidence + '% · Evidence coverage: ' + metrics.evidenceCoverage + '% · Team coherence: ' + metrics.teamCoherence + '%</p></div><div class="card"><h2>Observed training focus</h2><p>' + focus.join(' · ') + '</p></div><div class="card"><h2>Decision timeline</h2>' + decisions.slice().sort(function(a,b){return a.at-b.at;}).map(function(d){return '<p><b>T+' + fmtClock(d.at) + '</b> · ' + d.action + ' · ' + d.confidence + '% · ' + d.rationale + '</p>';}).join('') + '</div><div class="card"><h2>Information ledger / ground truth reveal</h2><table><tr><th>ID</th><th>Source</th><th>State</th><th>Trust</th><th>Ground truth</th></tr>' + reports.map(function(r){return '<tr><td>' + r.id + '</td><td>' + r.source + '</td><td>' + r.state + '</td><td>' + trustScore(r) + '%</td><td>' + r.truth + '</td></tr>';}).join('') + '</table></div></body></html>';
+      text = '<!doctype html><html><head><meta charset="utf-8"><title>Sentinel Grid Omega AAR</title><style>body{font-family:Arial;background:#071019;color:#dce7ee;padding:30px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #294453;text-align:left}.card{border:1px solid #294453;padding:18px;margin:14px 0;background:#0d1923}</style></head><body><h1>Sentinel Grid Omega — After Action Review</h1><p>' + scenario.name + ' · T+' + fmtClock(elapsed) + '</p><div class="card"><h2>Training metrics</h2><p>Decisions: ' + metrics.count + ' · Avg confidence: ' + metrics.avgConfidence + '% · Evidence coverage: ' + metrics.evidenceCoverage + '% · Team coherence: ' + metrics.teamCoherence + '%</p></div><div class="card"><h2>Observed training focus</h2><p>' + escapeHtml(focus.join(' · ')) + '</p></div><div class="card"><h2>Decision timeline</h2>' + decisions.slice().sort(function(a,b){return a.at-b.at;}).map(function(d){return '<p><b>T+' + fmtClock(d.at) + '</b> · ' + d.action + ' · ' + d.confidence + '% · ' + d.rationale + '</p>';}).join('') + '</div><div class="card"><h2>Information ledger / ground truth reveal</h2><table><tr><th>ID</th><th>Source</th><th>State</th><th>Trust</th><th>Ground truth</th></tr>' + reports.map(function(r){return '<tr><td>' + escapeHtml(r.id) + '</td><td>' + escapeHtml(r.source) + '</td><td>' + escapeHtml(r.state) + '</td><td>' + trustScore(r) + '%</td><td>' + escapeHtml(r.truth) + '</td></tr>';}).join('') + '</table></div></body></html>';
     } else {
       text = JSON.stringify(payload, null, 2);
     }
     var blob = new Blob([text], { type: mime });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, filename);
   };
 
   return (
@@ -441,6 +473,7 @@ function Presence(props) {
 function RerunEmbeddedPanel() {
   const hostRef = useRef(null);
   const viewerRef = useRef(null);
+  const objectUrlRef = useRef(null);
   const [sourceUrl, setSourceUrl] = useState('');
   const [status, setStatus] = useState('READY · LOAD A .RRD RECORDING');
 
@@ -448,6 +481,10 @@ function RerunEmbeddedPanel() {
     if (viewerRef.current) {
       try { viewerRef.current.stop(); } catch (_) {}
       viewerRef.current = null;
+    }
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
     }
   };
 
@@ -465,7 +502,9 @@ function RerunEmbeddedPanel() {
         width: '100%',
         height: '620px',
         hide_welcome_screen: true,
-        theme: 'dark'
+        theme: 'dark',
+        allow_fullscreen: true,
+        render_backend: 'webgl'
       });
       viewerRef.current = viewer;
       setStatus('LIVE · RERUN 3D VIEWER');
@@ -478,7 +517,9 @@ function RerunEmbeddedPanel() {
   const handleFile = function(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const objectUrl = URL.createObjectURL(file);
+    objectUrlRef.current = objectUrl;
     startViewer(objectUrl);
   };
 
@@ -608,7 +649,7 @@ function VisualizationPanel({ reports, events, decisions, netHealth, latency, dr
     })).map(function(e, index) {
       return {
         id: index + '-' + e.at + '-' + e.tag,
-        content: '<b>' + e.tag + '</b> ' + String(e.text).replace(/</g, '&lt;'),
+        content: '<b>' + escapeHtml(e.tag) + '</b> ' + escapeHtml(e.text),
         start: new Date(base.getTime() + Number(e.at || 0) * 1000),
         group: e.tag
       };
