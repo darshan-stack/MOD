@@ -21,6 +21,14 @@ import { simulationPlan } from '../src/engine/realtimeSimulation.js';
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '0.0.0.0';
+const TRAINING_TOKEN = process.env.TRAINING_TOKEN || '';
+
+function authorized(req, role) {
+  if (!TRAINING_TOKEN) return true;
+  const token = String(req.headers.authorization || '').replace(/^Bearer\\s+/i, '');
+  const requestedRole = String(req.headers['x-training-role'] || '');
+  return token === TRAINING_TOKEN && (!role || requestedRole === role || requestedRole === 'instructor');
+}
 
 const sessions = new Map();
 
@@ -283,6 +291,7 @@ function handle(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/session') {
+    if (!authorized(req, 'instructor')) return json(res, 401, { error: 'training authorization required' });
     const body = parseBody(req);
     return body.then(data => {
       const session = createSession(data.scenarioKey || 'ALPHA-07');
@@ -320,6 +329,7 @@ function handle(req, res) {
   }
 
   if (req.method === 'POST' && match[2] === 'join') {
+    if (!authorized(req)) return json(res, 401, { error: 'training authorization required' });
     return parseBody(req).then(data => {
       const participant = {
         id: data.participantId || randomUUID(),
@@ -334,7 +344,10 @@ function handle(req, res) {
   }
 
   if (req.method === 'POST' && match[2] === 'command') {
+    if (!authorized(req)) return json(res, 401, { error: 'training authorization required' });
     return parseBody(req).then(data => {
+      const instructorOnly = new Set(['CLOCK_CONTROL', 'SIMULATION_OPTIONS', 'LOAD_SCENARIO', 'PARAM', 'INJECT']);
+      if (instructorOnly.has(data.type) && !authorized(req, 'instructor')) return json(res, 403, { error: 'instructor role required' });
       if (data.type === 'CLOCK_CONTROL') session.running = Boolean(data.running);
       if (data.type === 'SIMULATION_OPTIONS') {
         session.autoSimulation = Boolean(data.autoSimulation);
