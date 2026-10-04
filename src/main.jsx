@@ -290,6 +290,7 @@ function App() {
     var selectedReports = reports.filter(function(r) { return selectedEvidence.indexOf(r.id) >= 0; });
     var decisionReports = selectedReports.filter(function(r) { return r.topic === 'route_echo'; });
     var evidenceState = robustFuse(decisionReports, netHealth / 100, sourceHistory);
+    var decisionExplainability = explainDecision(reports, selectedEvidence, netHealth / 100, sourceHistory);
     var outcome = evaluateDecisionOutcome(decisionType, evidenceState, scenario.difficulty, scenario.routeTruth);
     var d = {
       id: makeId('D'),
@@ -307,7 +308,8 @@ function App() {
       sufficiency: evidenceState.sufficiency,
       correct: outcome.correct,
       brier: brierScore(Number(confidence) / 100, outcome.correct),
-      itemRating: outcome.opponentRating
+      itemRating: outcome.opponentRating,
+      explainability: decisionExplainability
     };
     setDecisions(function(current) { return [d].concat(current); });
     setSourceHistory(function(current) {
@@ -411,7 +413,8 @@ function App() {
       },
       explainability: explainability,
       auditFingerprint: ledgerFingerprint,
-      note: 'Synthetic training analytics; not an operational assessment.'
+      note: 'Synthetic training analytics; not an operational assessment.',
+      explainabilityCurrent: explainability
     };
     var text = '';
     var mime = 'application/json';
