@@ -173,3 +173,15 @@ This is a tamper-evident integrity check for the exported training record. It is
 ## Safety / scope
 
 This is a synthetic training environment. It does not contain real operational data, real-world targeting logic or interfaces for controlling physical military systems.
+
+
+### 11. Procedural Scenario DSL and reproducibility
+
+The scenario layer is now represented as a versioned domain-specific configuration describing synthetic phases, objectives, source families, information topics and minimum evidence constraints.
+
+The generator samples only synthetic values and is deterministic for a supplied seed and variant. Before a generated exercise enters the training loop, a validator checks structural constraints such as minimum report count, minimum route evidence and minimum independent route sources.
+
+This changes the experimental unit from a small set of hand-authored demonstrations to a reproducible family of scenario instances. The fixed ALPHA-07, CIPHER-11 and NORTHSTAR-03 cases remain as reference fixtures; procedural variants can be regenerated exactly from their seed for A/B testing, benchmark creation and lab notebooks.
+
+The procedural layer is deliberately separated from the decision-intelligence kernel. Scenario generation creates information conditions; the decision model remains responsible for fusion, uncertainty and abstention. This separation makes it possible to test the same decision algorithm across many independently generated information environments.
+
