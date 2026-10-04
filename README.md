@@ -106,6 +106,7 @@ The decision-intelligence kernel uses:
 - SHA-256 exercise fingerprinting for tamper-evident AAR integrity checks.
 - Deterministic benchmark laboratory comparing Sentinel Ω against confidence-only and confidence×freshness baselines under controlled degradation.
 - Red-team resilience laboratory that deterministically attacks the information layer with stale deception, conflict bursts, true-source dropout, duplicate-source echoes and delayed contradictions, measuring false-confidence exposure and explicit abstention.
+- Synthetic Curriculum Experiment Lab running seeded multi-session comparisons between fixed and adaptive curricula, with learning curves, difficulty-response plots, calibration diagrams, adaptive-gain heatmaps and trial-level CSV/JSON export.
 
 See [docs/RESEARCH.md](docs/RESEARCH.md) for papers, Army/defence references, design rationale and citations.
 
