@@ -63,6 +63,9 @@ function App() {
     { id: 'patel', initials: 'NP', name: 'N. Patel', role: 'NETWATCH', status: 'degraded' }
   ]);
   const [activeSeat, setActiveSeat] = useState('you');
+  const [participantRole, setParticipantRole] = useState('OC');
+  const [sessionId, setSessionId] = useState('SG-' + Math.floor(1000 + Math.random() * 9000));
+  const [networkStatus, setNetworkStatus] = useState('CONNECTED');
   const [selectedDomain, setSelectedDomain] = useState('ALL');
   const [selectedEvidence, setSelectedEvidence] = useState(['R-701']);
   const [decisionType, setDecisionType] = useState('VERIFY');
