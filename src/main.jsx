@@ -6,6 +6,7 @@ import { adaptiveChoice, calibrationGap as computeCalibrationGap, informationInt
 import { runBenchmark, benchmarkHeadline } from './engine/benchmark';
 import { runResilienceBenchmark } from './engine/resilienceLab';
 import { explainDecision } from './engine/decisionExplainability';
+import { generateScenario } from './engine/scenarioGenerator';
 
 const SCENARIOS = {
   "ALPHA-07": { name: 'ALPHA-07 · Contested Approach', phase: '02 / degraded information', objective: 'Maintain a coherent picture while reports diverge.', difficulty: 6, comms: 42, latency: 68, dropout: 21, conflict: 28, routeTruth: 'CLEAR' },
@@ -73,6 +74,7 @@ function App() {
   const [mode, setMode] = useState('trainee');
   const [scenarioKey, setScenarioKey] = useState('ALPHA-07');
   const [scenarioDifficulty, setScenarioDifficulty] = useState(SCENARIOS['ALPHA-07'].difficulty);
+  const [generatedScenario, setGeneratedScenario] = useState(null);
   const [running, setRunning] = useState(true);
   const [elapsed, setElapsed] = useState(1122);
   const [reports, setReports] = useState(cloneReports);
@@ -120,7 +122,10 @@ function App() {
   const sessionIdRef = useRef(makeId('TAB'));
   const elapsedRef = useRef(elapsed);
 
-  const scenario = useMemo(function() { return { ...SCENARIOS[scenarioKey], difficulty: scenarioDifficulty }; }, [scenarioKey, scenarioDifficulty]);
+  const scenario = useMemo(function() {
+    var base = generatedScenario || SCENARIOS[scenarioKey];
+    return { ...base, difficulty: scenarioDifficulty };
+  }, [scenarioKey, scenarioDifficulty, generatedScenario]);
   const routeEvidence = useMemo(function() { return reports.filter(function(r) { return r.topic === 'route_echo'; }); }, [reports]);
   const fusedRoute = useMemo(function() { return robustFuse(routeEvidence, netHealth / 100, sourceHistory); }, [routeEvidence, netHealth, sourceHistory]);
   const explainability = useMemo(function() {
@@ -151,6 +156,9 @@ function App() {
       if (p.origin === sessionIdRef.current) return;
       if (p.type === 'SCENARIO') {
         loadScenario(p.key, true);
+      }
+      if (p.type === 'PROCEDURAL_SCENARIO' && p.scenario) {
+        loadGeneratedScenario(p.scenario, true);
       }
       if (p.type === 'INJECT') {
         inject(p.kind, true);
@@ -254,9 +262,35 @@ function App() {
     if (!remote) broadcast({ type: 'INJECT', kind: kind });
   };
 
+  const loadGeneratedScenario = function(s, remote) {
+    remote = Boolean(remote);
+    if (!s) return;
+    setGeneratedScenario(s);
+    setScenarioKey(s.key);
+    setScenarioDifficulty(s.difficulty);
+    setSelectedEvidence([]);
+    setDecisionText('');
+    setTeamChannelDegraded(s.dropout >= 20 || s.comms >= 40);
+    setNetHealth(100 - s.comms);
+    setLatency(s.latency);
+    setDropout(s.dropout);
+    setConflict(s.conflict);
+    setFreshnessDecay(Math.round((s.latency + s.conflict) / 4));
+    setReports(s.reports.map(function(r) { return { ...r }; }));
+    setDecisions([]);
+    setMessages([]);
+    setElapsed(0);
+    setReplayAt(0);
+    setRunning(true);
+    setExerciseHistory(function(current) { return { ...current, [s.key]: Number(current[s.key] || 0) + 1 }; });
+    setEvents(s.events.map(function(e) { return { ...e }; }));
+    if (!remote) broadcast({ type: 'PROCEDURAL_SCENARIO', scenario: s });
+  };
+
   const loadScenario = function(key, remote) {
     remote = Boolean(remote);
     var s = SCENARIOS[key];
+    setGeneratedScenario(null);
     setScenarioKey(key);
     setScenarioDifficulty(s.difficulty);
     setSelectedEvidence([]);
@@ -351,23 +385,18 @@ function App() {
     var roundsObserved = Object.values(exerciseHistory).reduce(function(sum, count) { return sum + Number(count || 0); }, 0);
     var nextChoice = adaptiveChoice(focus, exerciseHistory, Math.max(roundsObserved + 1, decisions.length + 1));
     var targetDifficulty = clamp(nextChoice.difficulty + focus.length - 1, 1, 10);
-    setScenarioKey(nextChoice.key);
-    setScenarioDifficulty(targetDifficulty);
-    setExerciseHistory(function(current) { return { ...current, [nextChoice.key]: Number(current[nextChoice.key] || 0) + 1 }; });
-    setSelectedEvidence([]);
-    setDecisionText('');
-    setTeamChannelDegraded(true);
-    setNetHealth(36);
-    setLatency(clamp(72 + focus.length * 6));
-    setDropout(36);
-    setConflict(clamp(34 + focus.length * 9));
-    setFreshnessDecay(58);
-    setReports(cloneReports().map(function(r) { return r.id === 'R-701' ? { ...r, freshness: 24, state: 'stale' } : r; }));
-    setElapsed(0);
-    setReplayAt(0);
-    setDecisions([]);
-    setEvents([{ at: 0, tag: 'ADAPT', text: 'Adaptive Director generated a targeted exercise at difficulty ' + targetDifficulty + '/10 for ' + focus.join(', ') + '.' }]);
-    addEvent('ADAPT', 'Training loop recalibrated: observe → diagnose → target weakness.');
+    var generated = generateScenario({
+      seed: 20261005 + roundsObserved,
+      difficulty: targetDifficulty,
+      variant: decisions.length + focus.length
+    });
+    generated.events = generated.events.concat({
+      at: 248,
+      tag: 'ADAPT',
+      text: 'Adaptive Director selected a procedural variant focused on ' + focus.join(', ') + ' at difficulty ' + targetDifficulty + '/10.'
+    });
+    loadGeneratedScenario(generated, false);
+    addEvent('ADAPT', 'Training loop moved from fixed templates to a seeded procedural scenario.', false);
   };
 
   const joinSeat = function(member) {
@@ -898,7 +927,7 @@ function TeamPanel({ members, activeSeat, joinSeat, messages, messageText, setMe
 }
 
 function DirectorPanel({ scenarioKey, scenario, onScenario, netHealth, setNetHealth, latency, setLatency, dropout, setDropout, conflict, setConflict, freshnessDecay, setFreshnessDecay, inject, metrics, events, decisions, focus, generateNextExercise }) {
-  return <div className="director-layout"><section className="director-main"><div className="section-head"><div><div className="eyebrow">SCENARIO DIRECTOR</div><h2>Inject friction without breaking exercise flow</h2></div><span className="badge live">LIVE CONTROL</span></div><div className="scenario-picker">{Object.entries(SCENARIOS).map(function(pair){var key=pair[0], item=pair[1];return <button key={key} className={scenarioKey === key ? 'scenario-card active' : 'scenario-card'} onClick={() => onScenario(key)}><small>SCENARIO</small><strong>{key}</strong><span>{item.phase}</span><span>Difficulty {item.difficulty}/10</span></button>;})}</div><div className="director-controls"><Control label="NETWORK HEALTH" value={netHealth} suffix="%" onChange={setNetHealth}/><Control label="TELEMETRY LATENCY" value={latency} suffix="sec" onChange={setLatency}/><Control label="VOICE DROPOUT" value={dropout} suffix="%" onChange={setDropout}/><Control label="CONFLICT PRESSURE" value={conflict} suffix="%" onChange={setConflict}/><Control label="FRESHNESS DECAY" value={freshnessDecay} suffix="pts/min" onChange={setFreshnessDecay}/></div><div className="event-injection"><div className="section-head compact"><div><div className="eyebrow">MID-EXERCISE INJECTION</div><h2>Change the information environment</h2></div></div><div className="inject-grid large"><button onClick={() => inject('delay')}><span>◴</span><strong>Delay feed</strong><small>Increase age + latency</small></button><button onClick={() => inject('dropout')}><span>⌁</span><strong>Drop node</strong><small>Remove a source</small></button><button onClick={() => inject('conflict')}><span>↯</span><strong>Conflict report</strong><small>Create source disagreement</small></button><button onClick={() => inject('stale')}><span>◷</span><strong>Age report</strong><small>Force freshness decay</small></button><button onClick={() => inject('split')}><span>⫸</span><strong>Split team net</strong><small>Cross-cell delay/dropout</small></button></div></div><div className="director-footer-card"><div><small>NEXT TRAINING FOCUS</small><strong>{focus.join(' · ')}</strong></div><button className="primary-btn" onClick={generateNextExercise}>GENERATE NEXT EXERCISE ↗</button></div></section><aside className="director-side"><div className="eyebrow">LIVE MONITOR</div><h3>Team decision trace</h3><div className="monitor-grid"><Metric label="DECISIONS" value={metrics.count}/><Metric label="AVG CONFIDENCE" value={metrics.avgConfidence + '%'}/><Metric label="TEAM COHERENCE" value={metrics.teamCoherence + '%'}/><Metric label="EVIDENCE COVERAGE" value={metrics.evidenceCoverage + '%'}/></div><div className="panel-divider"></div><div className="eyebrow">LATEST DECISIONS</div><div className="decision-stream">{decisions.slice(0,6).map(function(d){return <div className="stream-row" key={d.id}><span>T+{fmtClock(d.at)}</span><strong>{d.action}</strong><small>{d.rationale}</small></div>;})}</div><div className="panel-divider"></div><div className="eyebrow">LATEST EVENTS</div><div className="decision-stream">{events.slice(-5).reverse().map(function(e,i){return <div className="stream-row" key={e.at+'-'+i}><span>T+{fmtClock(e.at)}</span><strong>{e.tag}</strong><small>{e.text}</small></div>;})}</div></aside></div>;
+  return <div className="director-layout"><section className="director-main"><div className="section-head"><div><div className="eyebrow">SCENARIO DIRECTOR</div><h2>Inject friction without breaking exercise flow</h2></div><span className="badge live">LIVE CONTROL</span></div><div className="scenario-picker">{Object.entries(SCENARIOS).map(function(pair){var key=pair[0], item=pair[1];return <button key={key} className={scenarioKey === key ? 'scenario-card active' : 'scenario-card'} onClick={() => onScenario(key)}><small>SCENARIO</small><strong>{key}</strong><span>{item.phase}</span><span>Difficulty {item.difficulty}/10</span></button>;})}</div><div className="director-controls"><Control label="NETWORK HEALTH" value={netHealth} suffix="%" onChange={setNetHealth}/><Control label="TELEMETRY LATENCY" value={latency} suffix="sec" onChange={setLatency}/><Control label="VOICE DROPOUT" value={dropout} suffix="%" onChange={setDropout}/><Control label="CONFLICT PRESSURE" value={conflict} suffix="%" onChange={setConflict}/><Control label="FRESHNESS DECAY" value={freshnessDecay} suffix="pts/min" onChange={setFreshnessDecay}/></div><div className="event-injection"><div className="section-head compact"><div><div className="eyebrow">MID-EXERCISE INJECTION</div><h2>Change the information environment</h2></div></div><div className="inject-grid large"><button onClick={() => inject('delay')}><span>◴</span><strong>Delay feed</strong><small>Increase age + latency</small></button><button onClick={() => inject('dropout')}><span>⌁</span><strong>Drop node</strong><small>Remove a source</small></button><button onClick={() => inject('conflict')}><span>↯</span><strong>Conflict report</strong><small>Create source disagreement</small></button><button onClick={() => inject('stale')}><span>◷</span><strong>Age report</strong><small>Force freshness decay</small></button><button onClick={() => inject('split')}><span>⫸</span><strong>Split team net</strong><small>Cross-cell delay/dropout</small></button></div></div><div className="director-footer-card"><div><small>NEXT TRAINING FOCUS</small><strong>{focus.join(' · ')}</strong><span className="director-generated-meta">Procedural DSL · deterministic synthetic scenario generation</span></div><button className="primary-btn" onClick={generateNextExercise}>GENERATE NEXT EXERCISE ↗</button></div></section><aside className="director-side"><div className="eyebrow">LIVE MONITOR</div><h3>Team decision trace</h3><div className="monitor-grid"><Metric label="DECISIONS" value={metrics.count}/><Metric label="AVG CONFIDENCE" value={metrics.avgConfidence + '%'}/><Metric label="TEAM COHERENCE" value={metrics.teamCoherence + '%'}/><Metric label="EVIDENCE COVERAGE" value={metrics.evidenceCoverage + '%'}/></div><div className="panel-divider"></div><div className="eyebrow">LATEST DECISIONS</div><div className="decision-stream">{decisions.slice(0,6).map(function(d){return <div className="stream-row" key={d.id}><span>T+{fmtClock(d.at)}</span><strong>{d.action}</strong><small>{d.rationale}</small></div>;})}</div><div className="panel-divider"></div><div className="eyebrow">LATEST EVENTS</div><div className="decision-stream">{events.slice(-5).reverse().map(function(e,i){return <div className="stream-row" key={e.at+'-'+i}><span>T+{fmtClock(e.at)}</span><strong>{e.tag}</strong><small>{e.text}</small></div>;})}</div></aside></div>;
 }
 
 function Control({ label, value, suffix, onChange }) {
