@@ -236,3 +236,18 @@ The Degradation Response Surface Lab performs a deterministic grid sweep over tw
 The exported surfaces track winning projected probability, epistemic uncertainty, sufficiency, abstention rate, false-confidence rate and the difference in false-confidence rate versus the confidence-only comparator. A categorical phase layer labels production output as **COMMIT**, **UNCERTAIN**, or **ABSTAIN** for visualization. These labels are diagnostic displays of the simulator state, not operational decision rules.
 
 The purpose is to expose whether uncertainty rises continuously under degradation and whether abstention appears before confidence collapses into unsafe over-commitment. Because the cases and truth labels are synthetic, the surface is a mechanism-sensitivity artifact rather than evidence about human performance or field effectiveness.
+
+
+### 16. Consolidated research evidence dashboard
+
+The Experiment Lab presents a single evidence dashboard over five complementary validation layers:
+
+1. **Benchmark:** controlled comparison of confidence, freshness/reliability and Sentinel Ω fusion under multiple degraded-information conditions.
+2. **Red-team resilience:** synthetic attack families used to probe stale, contradictory, duplicated and missing evidence behavior.
+3. **Curriculum experiment:** repeated virtual-trainee sessions comparing fixed and adaptive exercise policies with session-level confidence intervals and paired randomization tests.
+4. **Component ablation:** shared-case sensitivity analysis showing how mechanism removal changes accuracy, false confidence, abstention and Brier score.
+5. **Degradation response surface:** controlled network-health × contradiction-pressure sweep exposing probability, uncertainty and abstention phase transitions.
+
+The dashboard's purpose is synthesis and auditability: a reviewer can see the algorithmic comparison, failure-mode stress tests, mechanism sensitivity and degradation boundary without treating them as interchangeable claims. Snapshot JSON/CSV exports preserve the current values for a reproducible lab record.
+
+The strongest defensible claim remains limited to the synthetic environment: the prototype demonstrates a reproducible decision-intelligence pipeline and a structured way to falsify, inspect and visualize its behavior under degraded information. Human-learning or operational-effectiveness conclusions require external empirical evaluation.
