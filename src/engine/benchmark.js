@@ -212,7 +212,9 @@ function riskCoverage(samples = []) {
 }
 
 function matchedCoverageAccuracy(samples = [], targetCoverage = 1) {
-  const ranked = samples.slice().sort((a, b) => b.confidence - a.confidence);
+  const ranked = samples
+    .filter(sample => !sample.abstain)
+    .sort((a, b) => b.confidence - a.confidence);
   if (!ranked.length) return null;
   const count = Math.max(1, Math.min(ranked.length, Math.round(ranked.length * clamp(targetCoverage))));
   const correct = ranked.slice(0, count).filter(x => x.correct).length;
